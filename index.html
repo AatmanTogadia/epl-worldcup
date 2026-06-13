@@ -20,6 +20,13 @@
     .hero-title { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.02em; }
     .hero-sub { font-size: 0.75rem; color: var(--text2); margin-top: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
     .wc-pill { background: var(--gold); color: #000; font-size: 0.65rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 6px; display: inline-block; }
+    .hero-tagline { font-size: 0.78rem; color: var(--text2); margin-top: 10px; font-style: italic; }
+    .hero-tagline span { color: var(--green); font-style: normal; font-weight: 600; }
+    .footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text2); font-size: 0.78rem; line-height: 2; }
+    .footer-name { color: var(--gold); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; }
+    .footer-sub { font-size: 0.68rem; color: var(--text2); margin-top: 2px; }
+    .footer-badges { display: flex; justify-content: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .fbadge { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.68rem; }
     .main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
     .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
     .search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 240px; }
@@ -71,6 +78,7 @@
       <div class="hero-title">EPL at the World Cup</div>
       <div class="hero-sub">FIFA World Cup 2026 · Player Stats</div>
       <div class="wc-pill">USA · Canada · Mexico</div>
+      <div class="hero-tagline">Because someone has to keep track of all these lads 👀 — <span>updated every 5 mins</span></div>
     </div>
   </div>
 </div>
@@ -210,5 +218,17 @@
   function doRefresh(){clearInterval(cdTimer);clearTimeout(refTimer);fetchStats().then(startCountdown);}
   doRefresh();
 </script>
+
+<div class="footer">
+  <div class="footer-name">⚽ Built by Aatman</div>
+  <div class="footer-sub">Powered by real data · Fuelled by football obsession · Definitely not procrastinating</div>
+  <div class="footer-badges">
+    <span class="fbadge">🏴󠁧󠁢󠁥󠁮󠁧󠁿 EPL data</span>
+    <span class="fbadge">🌍 WC 2026</span>
+    <span class="fbadge">🤖 No fake stats</span>
+    <span class="fbadge">☕ Powered by coffee</span>
+    <span class="fbadge">🔄 Auto-refreshes</span>
+  </div>
+</div>
 </body>
 </html>
