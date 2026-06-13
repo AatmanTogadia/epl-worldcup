@@ -4,10 +4,10 @@ const WC_SEASON  = 2026;
 const EPL_LEAGUE = 39;
 const EPL_SEASON = 2025;
 
-const STATS_TTL    = 5  * 60   * 1000;   // 5 mins  — during tournament
-const IDLE_TTL     = 6  * 3600 * 1000;   // 6 hrs   — no matches
-const WC_SQUAD_TTL = 24 * 3600 * 1000;   // 24 hrs
-const EPL_SQUAD_TTL= 7  * 86400* 1000;   // 7 days
+const STATS_TTL    = 5  * 60   * 1000;
+const IDLE_TTL     = 6  * 3600 * 1000;
+const WC_SQUAD_TTL = 24 * 3600 * 1000;
+const EPL_SQUAD_TTL= 7  * 86400* 1000;
 
 const WC_START = new Date('2026-06-11').getTime();
 const WC_END   = new Date('2026-07-20').getTime();
@@ -23,7 +23,6 @@ function posLabel(pos){
   return pos;
 }
 
-// In-memory cache — persists across requests on same Vercel instance
 const C = {
   eplMap:   { data:null, at:0 },
   wcSquads: { data:null, at:0 },
@@ -41,7 +40,6 @@ module.exports = async function handler(req, res){
 
   const ttl = isMatchDay() ? STATS_TTL : IDLE_TTL;
 
-  // Return cached result if still fresh
   if(C.result.data && (Date.now()-C.result.at)<ttl){
     return res.status(200).json({
       ...C.result.data,
@@ -51,6 +49,7 @@ module.exports = async function handler(req, res){
   }
 
   const headers = {'x-apisports-key': key};
+
   async function get(path){
     const r = await fetch(`${BASE}${path}`,{headers});
     const d = await r.json();
@@ -59,8 +58,7 @@ module.exports = async function handler(req, res){
   }
 
   try {
-    // ── STEP 1: EPL squad map — 7 day cache (~21 calls once a week) ──
-    // playerId → { club, clubLogo, position }
+    // ── STEP 1: EPL squad map — 7 day cache ──
     let eplMap = {};
     if(C.eplMap.data && (Date.now()-C.eplMap.at)<EPL_SQUAD_TTL){
       eplMap = C.eplMap.data;
@@ -76,9 +74,8 @@ module.exports = async function handler(req, res){
       C.eplMap = { data:eplMap, at:Date.now() };
     }
 
-    // ── STEP 2: WC squad map — 24 hr cache (~49 calls once a day) ──
-    // playerId → { nation, flag, name, position }
-    // KEY FIX: We get player NAMES here from the squad list
+    // ── STEP 2: WC squad map — 24 hr cache ──
+    // This gives us NAMES + nations for everyone including "yet to play"
     let wcSquads = {};
     if(C.wcSquads.data && (Date.now()-C.wcSquads.at)<WC_SQUAD_TTL){
       wcSquads = C.wcSquads.data;
@@ -92,21 +89,24 @@ module.exports = async function handler(req, res){
             wcSquads[p.id] = {
               nation:   t.name,
               flag:     t.logo||'',
-              name:     p.name||'Unknown',   // ← NAME from WC squad roster
+              name:     p.name||'Unknown',
               position: posLabel(p.position),
+              teamId:   t.id,   // store team ID for targeted fetching
             };
       }
       C.wcSquads = { data:wcSquads, at:Date.now() };
     }
 
-    // ── STEP 3: Cross-reference — all EPL players at WC, start with 0 stats ──
+    // ── STEP 3: Cross-reference — all EPL players at WC, 0 stats baseline ──
     const playerMap = {};
+    const wcTeamIds = new Set(); // WC team IDs that have EPL players
+
     for(const [pid, epl] of Object.entries(eplMap)){
       const wc = wcSquads[pid];
-      if(!wc) continue; // not at the WC
+      if(!wc) continue;
       playerMap[pid] = {
         id:          parseInt(pid),
-        name:        wc.name,               // ← from WC squad, always populated
+        name:        wc.name,
         nationality: wc.nation,
         flag:        wc.flag,
         club:        epl.club,
@@ -116,11 +116,10 @@ module.exports = async function handler(req, res){
         goals:       0, assists:     0,
         yellow:      0, red:         0,
       };
+      if(wc.teamId) wcTeamIds.add(wc.teamId);
     }
 
-    // ── STEP 4: Layer in stats — just 4 API calls ──
-    // topscorers/topassists/topcards — covers everyone with goals, assists or cards
-    // This is where Robinson's minutes would show IF he scored/got a card
+    // ── STEP 4: Top stats — 4 parallel calls ──
     function applyEntry(entry){
       const p    = entry.player;
       const stat = entry.statistics?.[0];
@@ -132,8 +131,8 @@ module.exports = async function handler(req, res){
       if(stat.goals?.total)        pm.goals       = stat.goals.total;
       if(stat.goals?.assists)      pm.assists     = stat.goals.assists;
       if(stat.cards?.yellow)       pm.yellow      = stat.cards.yellow;
-      const red = (stat.cards?.red||0)+(stat.cards?.yellowred||0);
-      if(red) pm.red = red;
+      const red=(stat.cards?.red||0)+(stat.cards?.yellowred||0);
+      if(red) pm.red=red;
     }
 
     const [scorers, topAssists, topYellow, topRed] = await Promise.all([
@@ -144,36 +143,30 @@ module.exports = async function handler(req, res){
     ]);
     [...scorers,...topAssists,...topYellow,...topRed].forEach(applyEntry);
 
-    // ── STEP 5: Get minutes for ALL players who played — 1 call ──
-    // /players endpoint with league+season gives us full stats per player
-    // We paginate but only update minutes (goals etc already handled above)
-    // This catches Robinson and anyone else who played but didn't score/get cards
-    const p1 = await fetch(`${BASE}/players?league=${WC_LEAGUE}&season=${WC_SEASON}&page=1`,{headers});
-    const p1d = await p1.json();
-    const totalPages = Math.min(p1d.paging?.total||1, 8); // cap at 8 pages
-    const allStats   = [...(p1d.response||[])];
-
-    for(let pg=2; pg<=totalPages; pg++){
-      const rows = await get(`/players?league=${WC_LEAGUE}&season=${WC_SEASON}&page=${pg}`);
-      allStats.push(...rows);
-    }
-
-    // Apply minutes for ALL players — this is the Robinson fix
-    for(const entry of allStats){
-      const p    = entry.player;
-      const stat = entry.statistics?.[0];
-      if(!stat||!playerMap[p.id]) continue;
-      const pm = playerMap[p.id];
-      if(p.name) pm.name = p.name;
-      // Only update minutes if API has a value — don't overwrite with 0
-      if(stat.games?.minutes)     pm.minutes     = stat.games.minutes;
-      if(stat.games?.appearences) pm.appearances = stat.games.appearences;
-      // Stats already set from topscorers/topassists above — don't overwrite with nulls
-      if(stat.goals?.total)       pm.goals   = stat.goals.total;
-      if(stat.goals?.assists)     pm.assists  = stat.goals.assists;
-      if(stat.cards?.yellow)      pm.yellow   = stat.cards.yellow;
-      const red=(stat.cards?.red||0)+(stat.cards?.yellowred||0);
-      if(red) pm.red=red;
+    // ── STEP 5: Fetch player stats PER WC TEAM that has EPL players ──
+    // This is the Robinson fix — gets minutes for non-scorers
+    // Instead of paginating ALL WC players, we only fetch teams with EPL players
+    // Much more targeted — typically 10-15 national teams max
+    for(const teamId of wcTeamIds){
+      const teamPlayers = await get(`/players?league=${WC_LEAGUE}&season=${WC_SEASON}&team=${teamId}`);
+      for(const entry of teamPlayers){
+        const p    = entry.player;
+        const stat = entry.statistics?.[0];
+        if(!stat||!playerMap[p.id]) continue;
+        const pm = playerMap[p.id];
+        if(p.name) pm.name = p.name;
+        // Update minutes for anyone who played — this catches Robinson
+        if(stat.games?.minutes && stat.games.minutes > pm.minutes)
+          pm.minutes = stat.games.minutes;
+        if(stat.games?.appearences && stat.games.appearences > pm.appearances)
+          pm.appearances = stat.games.appearences;
+        // Only update goals/assists/cards if not already set by top endpoints
+        if(!pm.goals   && stat.goals?.total)   pm.goals   = stat.goals.total;
+        if(!pm.assists && stat.goals?.assists)  pm.assists = stat.goals.assists;
+        if(!pm.yellow  && stat.cards?.yellow)   pm.yellow  = stat.cards.yellow;
+        const red=(stat.cards?.red||0)+(stat.cards?.yellowred||0);
+        if(!pm.red && red) pm.red = red;
+      }
     }
 
     const players = Object.values(playerMap);
