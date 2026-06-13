@@ -182,7 +182,7 @@
       <td class="sc">${p.minutes?p.minutes+"'":'—'}</td>
       <td class="sc ${p.goals>0?'g':''}">${p.goals}</td>
       <td class="sc ${p.assists>0?'a':''}">${p.assists}</td>
-      <td class="sc">${p.yellow>0?`<span class="yc"></span>${p.yellow>1?`<span class="cx">×${p.yellow}</span>`:`}`:'—'}</td>
+      <td class="sc">${p.yellow>0?'<span class="yc"></span>'+(p.yellow>1?'<span class="cx">×'+p.yellow+'</span>':''):'—'}</td>
       <td class="sc">${p.red>0?'<span class="rc"></span>':'—'}</td>
     </tr>`).join('');
   }
