@@ -139,9 +139,10 @@
   async function fetchStats(){
     setBusy(true);
     try{
-      const r=await fetch('/api/stats',{method:'POST'});
+      const r=await fetch("/api/stats",{method:"GET"});
       if(!r.ok){const e=await r.json();throw new Error(e.error||'Server error');}
-      players=await r.json();
+      const json=await r.json();
+      players=json.players||json;
       updateFilters();renderTable();updateChips();
       document.getElementById('last-upd').textContent='· Updated '+new Date().toLocaleTimeString();
     }catch(e){
