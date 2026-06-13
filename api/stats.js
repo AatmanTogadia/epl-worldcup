@@ -4,15 +4,9 @@ const WC_SEASON  = 2026;
 const EPL_LEAGUE = 39;
 const EPL_SEASON = 2025;
 
-
-const STATS_TTL    = 10 * 60   * 1000;   // 10 mins — refresh everything
-const WC_SQUAD_TTL = 24 * 3600 * 1000;   // 24 hrs
-const EPL_SQUAD_TTL= 7  * 86400* 1000;   // 7 days
-const FIXTURE_TTL  = 24 * 3600 * 1000;   // 24 hrs — fixture ratings
-
-const WC_START = new Date('2026-06-11').getTime();
-const WC_END   = new Date('2026-07-20').getTime();
-function isMatchDay(){ const n=Date.now(); return n>=WC_START&&n<=WC_END; }
+const STATS_TTL    = 10 * 60   * 1000;  // 10 mins
+const WC_SQUAD_TTL = 24 * 3600 * 1000;  // 24 hrs
+const EPL_SQUAD_TTL= 7  * 86400* 1000;  // 7 days
 
 function posLabel(pos){
   if(!pos) return '—';
@@ -24,13 +18,12 @@ function posLabel(pos){
   return pos;
 }
 
+// Simple in-memory cache — best effort, resets on cold start
 const C = {
-  eplMap:    { data:null, at:0 },
-  wcSquads:  { data:null, at:0 },
-  fixtures:  { data:null, at:0 },
-  ratings:   { data:{},   at:0 },
-  result:    { data:null, at:0 },
-  lastFinishedFixtures: new Set(), // track which fixtures we've seen as FT
+  eplMap:   { data:null, at:0 },
+  wcSquads: { data:null, at:0 },
+  ratings:  { data:{},   at:0 },
+  result:   { data:null, at:0 },
 };
 
 module.exports = async function handler(req, res){
@@ -50,39 +43,16 @@ module.exports = async function handler(req, res){
     return d.response||[];
   }
 
+  // Serve from cache if fresh
+  if(C.result.data && (Date.now()-C.result.at) < STATS_TTL){
+    return res.status(200).json({
+      ...C.result.data,
+      cached: true,
+      cacheAge: Math.round((Date.now()-C.result.at)/1000)+'s'
+    });
+  }
+
   try {
-    // ── Smart cache busting ──
-    // Every 2 mins, check if a WC match just finished
-    // If yes → bust the stats cache so fresh data loads immediately
-    let shouldRefresh = !C.result.data; // always refresh if no data yet
-
-    if(!shouldRefresh && (Date.now()-C.result.at) < STATS_TTL){
-      // Check for newly finished matches every 2 mins
-      const liveCheckStale = !C.fixtures.at || (Date.now()-C.fixtures.at) > LIVE_TTL;
-      if(liveCheckStale){
-        const todayFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
-        C.fixtures = { data: todayFixtures, at: Date.now() };
-
-        // Check if any fixture just finished that we haven't seen before
-        for(const fx of todayFixtures){
-          const fid = fx.fixture?.id;
-          if(fid && !C.lastFinishedFixtures.has(fid)){
-            // New finished match detected! Bust the stats cache
-            shouldRefresh = true;
-            C.lastFinishedFixtures.add(fid);
-          }
-        }
-      }
-
-      if(!shouldRefresh){
-        return res.status(200).json({
-          ...C.result.data,
-          cached: true,
-          cacheAge: Math.round((Date.now()-C.result.at)/1000)+'s'
-        });
-      }
-    }
-
     // ── STEP 1: EPL squad map — 7 day cache ──
     let eplMap = {};
     if(C.eplMap.data && (Date.now()-C.eplMap.at)<EPL_SQUAD_TTL){
@@ -121,7 +91,7 @@ module.exports = async function handler(req, res){
       C.wcSquads = { data:wcSquads, at:Date.now() };
     }
 
-    // ── STEP 3: Cross-reference — all EPL players at WC ──
+    // ── STEP 3: Cross reference — all EPL players at WC ──
     const playerMap = {};
     const wcTeamIds = new Set();
 
@@ -169,7 +139,7 @@ module.exports = async function handler(req, res){
     ]);
     [...scorers,...topAssists,...topYellow,...topRed].forEach(applyEntry);
 
-    // ── STEP 5: Minutes for non-scorers ──
+    // ── STEP 5: Per-team fetch for minutes (Robinson/Xhaka fix) ──
     for(const teamId of wcTeamIds){
       const teamPlayers = await get(`/players?league=${WC_LEAGUE}&season=${WC_SEASON}&team=${teamId}`);
       for(const entry of teamPlayers){
@@ -178,8 +148,10 @@ module.exports = async function handler(req, res){
         if(!stat||!playerMap[p.id]) continue;
         const pm = playerMap[p.id];
         if(p.name) pm.name = p.name;
-        if(stat.games?.minutes && stat.games.minutes > pm.minutes) pm.minutes = stat.games.minutes;
-        if(stat.games?.appearences && stat.games.appearences > pm.appearances) pm.appearances = stat.games.appearences;
+        if(stat.games?.minutes && stat.games.minutes > pm.minutes)
+          pm.minutes = stat.games.minutes;
+        if(stat.games?.appearences && stat.games.appearences > pm.appearances)
+          pm.appearances = stat.games.appearences;
         if(!pm.goals   && stat.goals?.total)  pm.goals   = stat.goals.total;
         if(!pm.assists && stat.goals?.assists) pm.assists = stat.goals.assists;
         if(!pm.yellow  && stat.cards?.yellow)  pm.yellow  = stat.cards.yellow;
@@ -188,14 +160,11 @@ module.exports = async function handler(req, res){
       }
     }
 
-    // ── STEP 6: Ratings from finished fixtures ──
-    const finishedFixtures = C.fixtures.data ||
-      await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
-
+    // ── STEP 6: Ratings from ALL finished fixtures ──
+    const finishedFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
     const fixtureIds = finishedFixtures.map(f=>f.fixture?.id).filter(Boolean);
-    // Update seen fixtures
-    fixtureIds.forEach(id => C.lastFinishedFixtures.add(id));
 
+    // Only fetch ratings for fixtures not already cached
     for(const fid of fixtureIds){
       if(C.ratings.data[fid]) continue;
       const fxPlayers = await get(`/fixtures/players?fixture=${fid}`);
@@ -223,7 +192,10 @@ module.exports = async function handler(req, res){
     // ── STEP 7: Club leaderboard ──
     const clubStats = {};
     for(const pm of Object.values(playerMap)){
-      if(!clubStats[pm.club]) clubStats[pm.club] = { club:pm.club, clubLogo:pm.clubLogo, players:0, goals:0, assists:0, ratings:[] };
+      if(!clubStats[pm.club]) clubStats[pm.club] = {
+        club:pm.club, clubLogo:pm.clubLogo,
+        players:0, goals:0, assists:0, ratings:[]
+      };
       const cs = clubStats[pm.club];
       cs.players++;
       cs.goals   += pm.goals||0;
@@ -234,7 +206,7 @@ module.exports = async function handler(req, res){
     const clubLeaderboard = Object.values(clubStats)
       .map(cs=>({
         ...cs,
-        ga:        cs.goals+cs.assists,
+        ga: cs.goals+cs.assists,
         avgRating: cs.ratings.length
           ? Math.round((cs.ratings.reduce((a,b)=>a+b,0)/cs.ratings.length)*10)/10
           : null,
@@ -247,7 +219,6 @@ module.exports = async function handler(req, res){
       players,
       clubLeaderboard,
       total:    players.length,
-      matchDay: isMatchDay(),
       source:   'api-football.com',
       updated:  new Date().toISOString(),
     };
