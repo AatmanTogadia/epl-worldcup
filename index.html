@@ -317,7 +317,7 @@ function updateScorers(){
 function rowHtml(p){
   const flagImg = p.flag ? `<img class="flag" src="${p.flag}" alt="" onerror="this.style.display='none'">` : '';
   const clubImg = p.clubLogo
-    ? `<img class="club-logo" src="${p.clubLogo}" alt="" onerror="this.outerHTML='<span class=\\"club-dot\\" style=\\"background:${clubColor(p.club)}\\"></span>'">`
+    ? '<img class="club-logo" src="' + p.clubLogo + '" alt="" onerror="this.style.display=\'none\'">'
     : `<span class="club-dot" style="background:${clubColor(p.club)}"></span>`;
   const posCls = p.position && p.position!=='—' ? `pos-${p.position}` : '';
   return `<tr${p.minutes===0?' class="unplayed"':''}>
