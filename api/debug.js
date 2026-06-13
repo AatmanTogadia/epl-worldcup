@@ -8,74 +8,56 @@ module.exports = async function handler(req, res){
   const headers = {'x-apisports-key': key};
 
   try {
-    // Check all finished fixtures
-    const ftRes  = await fetch(`${BASE}/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`,{headers});
-    const ftData = await ftRes.json();
-    const finished = ftData.response || [];
+    // Find Switzerland team ID in WC
+    const teamsRes = await fetch(`${BASE}/teams?league=${WC_LEAGUE}&season=${WC_SEASON}`,{headers});
+    const teamsData = await teamsRes.json();
+    const sui = (teamsData.response||[]).find(e=>e.team?.name?.toLowerCase().includes('swi'));
+    const suiId = sui?.team?.id;
 
-    // Check live fixtures
-    const liveRes  = await fetch(`${BASE}/fixtures?live=all`,{headers});
-    const liveData = await liveRes.json();
-    const live = liveData.response || [];
+    // Fetch Switzerland players in WC
+    const playersRes = await fetch(`${BASE}/players?league=${WC_LEAGUE}&season=${WC_SEASON}&team=${suiId}`,{headers});
+    const playersData = await playersRes.json();
 
-    // Check today's fixtures
-    const today = new Date().toISOString().split('T')[0];
-    const todayRes  = await fetch(`${BASE}/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&date=${today}`,{headers});
-    const todayData = await todayRes.json();
-    const todayFx = todayData.response || [];
+    // Look for Xhaka and Amdouni
+    const relevant = (playersData.response||[]).filter(e=>
+      e.player?.name?.toLowerCase().includes('xhaka') ||
+      e.player?.name?.toLowerCase().includes('amdouni') ||
+      e.player?.name?.toLowerCase().includes('ndoye') ||
+      e.player?.name?.toLowerCase().includes('zakaria')
+    );
 
-    // Get last finished fixture player stats
-    let sampleRatings = [];
-    if(finished.length > 0){
-      const lastFx = finished[finished.length-1];
-      const fpRes = await fetch(`${BASE}/fixtures/players?fixture=${lastFx.fixture?.id}`,{headers});
-      const fpData = await fpRes.json();
-      const teams = fpData.response || [];
-      for(const t of teams){
-        for(const p of (t.players||[]).slice(0,2)){
-          sampleRatings.push({
-            name:   p.player?.name,
+    // Also check fixture players for Qatar vs Switzerland
+    const qatSuiFixture = 1489373;
+    const fxRes = await fetch(`${BASE}/fixtures/players?fixture=${qatSuiFixture}`,{headers});
+    const fxData = await fxRes.json();
+    const fxRelevant = [];
+    for(const t of (fxData.response||[])){
+      for(const p of (t.players||[])){
+        const name = p.player?.name?.toLowerCase();
+        if(name?.includes('xhaka')||name?.includes('amdouni')||name?.includes('ndoye')){
+          fxRelevant.push({
+            name: p.player?.name,
+            mins: p.statistics?.[0]?.games?.minutes,
             rating: p.statistics?.[0]?.games?.rating,
-            mins:   p.statistics?.[0]?.games?.minutes,
+            playerId: p.player?.id,
           });
         }
       }
     }
 
-    // Check topscorers
-    const scorersRes = await fetch(`${BASE}/players/topscorers?league=${WC_LEAGUE}&season=${WC_SEASON}`,{headers});
-    const scorersData = await scorersRes.json();
-
     return res.status(200).json({
-      today,
-      finishedFixtures: finished.map(f=>({
-        id: f.fixture?.id,
-        match: `${f.teams?.home?.name} vs ${f.teams?.away?.name}`,
-        date: f.fixture?.date,
-        status: f.fixture?.status?.long,
-      })),
-      liveFixtures: live.map(f=>({
-        id: f.fixture?.id,
-        match: `${f.teams?.home?.name} vs ${f.teams?.away?.name}`,
-        minute: f.fixture?.status?.elapsed,
-      })),
-      todayFixtures: todayFx.map(f=>({
-        id: f.fixture?.id,
-        match: `${f.teams?.home?.name} vs ${f.teams?.away?.name}`,
-        status: f.fixture?.status?.long,
-        date: f.fixture?.date,
-      })),
-      topScorers: (scorersData.response||[]).slice(0,5).map(e=>({
+      suiTeamId: suiId,
+      suiTeamName: sui?.team?.name,
+      playersApiTotal: playersData.results,
+      playersApiPaging: playersData.paging,
+      relevantPlayers: relevant.map(e=>({
+        id: e.player?.id,
         name: e.player?.name,
-        goals: e.goals,
-        team: e.statistics?.[0]?.team?.name,
+        minutes: e.statistics?.[0]?.games?.minutes,
+        appearances: e.statistics?.[0]?.games?.appearences,
+        goals: e.statistics?.[0]?.goals?.total,
       })),
-      sampleRatingsFromLastMatch: sampleRatings,
-      apiErrors: {
-        ft: ftData.errors,
-        live: liveData.errors,
-        today: todayData.errors,
-      }
+      fixturePlayerData: fxRelevant,
     });
 
   } catch(e){
