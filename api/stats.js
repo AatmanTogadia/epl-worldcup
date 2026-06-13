@@ -8,6 +8,7 @@ const STATS_TTL    = 5  * 60   * 1000;
 const IDLE_TTL     = 6  * 3600 * 1000;
 const WC_SQUAD_TTL = 24 * 3600 * 1000;
 const EPL_SQUAD_TTL= 7  * 86400* 1000;
+const FIXTURE_TTL  = 24 * 3600 * 1000; // fixture ratings cached 24hrs
 
 const WC_START = new Date('2026-06-11').getTime();
 const WC_END   = new Date('2026-07-20').getTime();
@@ -24,9 +25,11 @@ function posLabel(pos){
 }
 
 const C = {
-  eplMap:   { data:null, at:0 },
-  wcSquads: { data:null, at:0 },
-  result:   { data:null, at:0 },
+  eplMap:    { data:null, at:0 },
+  wcSquads:  { data:null, at:0 },
+  fixtures:  { data:null, at:0 }, // finished WC fixture IDs
+  ratings:   { data:{}, at:0 },   // fixtureId -> { playerId -> rating }
+  result:    { data:null, at:0 },
 };
 
 module.exports = async function handler(req, res){
@@ -49,7 +52,6 @@ module.exports = async function handler(req, res){
   }
 
   const headers = {'x-apisports-key': key};
-
   async function get(path){
     const r = await fetch(`${BASE}${path}`,{headers});
     const d = await r.json();
@@ -75,7 +77,6 @@ module.exports = async function handler(req, res){
     }
 
     // ── STEP 2: WC squad map — 24 hr cache ──
-    // This gives us NAMES + nations for everyone including "yet to play"
     let wcSquads = {};
     if(C.wcSquads.data && (Date.now()-C.wcSquads.at)<WC_SQUAD_TTL){
       wcSquads = C.wcSquads.data;
@@ -91,15 +92,15 @@ module.exports = async function handler(req, res){
               flag:     t.logo||'',
               name:     p.name||'Unknown',
               position: posLabel(p.position),
-              teamId:   t.id,   // store team ID for targeted fetching
+              teamId:   t.id,
             };
       }
       C.wcSquads = { data:wcSquads, at:Date.now() };
     }
 
-    // ── STEP 3: Cross-reference — all EPL players at WC, 0 stats baseline ──
+    // ── STEP 3: Cross-reference — all EPL players at WC ──
     const playerMap = {};
-    const wcTeamIds = new Set(); // WC team IDs that have EPL players
+    const wcTeamIds = new Set();
 
     for(const [pid, epl] of Object.entries(eplMap)){
       const wc = wcSquads[pid];
@@ -115,6 +116,8 @@ module.exports = async function handler(req, res){
         minutes:     0, appearances: 0,
         goals:       0, assists:     0,
         yellow:      0, red:         0,
+        ratings:     [],   // per-game ratings array
+        avgRating:   null, // computed average
       };
       if(wc.teamId) wcTeamIds.add(wc.teamId);
     }
@@ -143,10 +146,7 @@ module.exports = async function handler(req, res){
     ]);
     [...scorers,...topAssists,...topYellow,...topRed].forEach(applyEntry);
 
-    // ── STEP 5: Fetch player stats PER WC TEAM that has EPL players ──
-    // This is the Robinson fix — gets minutes for non-scorers
-    // Instead of paginating ALL WC players, we only fetch teams with EPL players
-    // Much more targeted — typically 10-15 national teams max
+    // ── STEP 5: Minutes for non-scorers (Robinson fix) ──
     for(const teamId of wcTeamIds){
       const teamPlayers = await get(`/players?league=${WC_LEAGUE}&season=${WC_SEASON}&team=${teamId}`);
       for(const entry of teamPlayers){
@@ -155,23 +155,89 @@ module.exports = async function handler(req, res){
         if(!stat||!playerMap[p.id]) continue;
         const pm = playerMap[p.id];
         if(p.name) pm.name = p.name;
-        // Update minutes for anyone who played — this catches Robinson
-        if(stat.games?.minutes && stat.games.minutes > pm.minutes)
-          pm.minutes = stat.games.minutes;
-        if(stat.games?.appearences && stat.games.appearences > pm.appearances)
-          pm.appearances = stat.games.appearences;
-        // Only update goals/assists/cards if not already set by top endpoints
-        if(!pm.goals   && stat.goals?.total)   pm.goals   = stat.goals.total;
-        if(!pm.assists && stat.goals?.assists)  pm.assists = stat.goals.assists;
-        if(!pm.yellow  && stat.cards?.yellow)   pm.yellow  = stat.cards.yellow;
+        if(stat.games?.minutes && stat.games.minutes > pm.minutes) pm.minutes = stat.games.minutes;
+        if(stat.games?.appearences && stat.games.appearences > pm.appearances) pm.appearances = stat.games.appearences;
+        if(!pm.goals   && stat.goals?.total)  pm.goals   = stat.goals.total;
+        if(!pm.assists && stat.goals?.assists) pm.assists = stat.goals.assists;
+        if(!pm.yellow  && stat.cards?.yellow)  pm.yellow  = stat.cards.yellow;
         const red=(stat.cards?.red||0)+(stat.cards?.yellowred||0);
-        if(!pm.red && red) pm.red = red;
+        if(!pm.red && red) pm.red=red;
       }
     }
+
+    // ── STEP 6: Player ratings from finished fixtures ──
+    // Get finished WC fixture IDs — cached 24hrs
+    let fixtureIds = [];
+    if(C.fixtures.data && (Date.now()-C.fixtures.at)<FIXTURE_TTL){
+      fixtureIds = C.fixtures.data;
+    } else {
+      const fxList = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
+      fixtureIds = fxList.map(f=>f.fixture?.id).filter(Boolean);
+      C.fixtures = { data:fixtureIds, at:Date.now() };
+    }
+
+    // Fetch ratings per fixture — only for new fixtures not yet cached
+    for(const fid of fixtureIds){
+      if(C.ratings.data[fid]) continue; // already cached
+      const fxPlayers = await get(`/fixtures/players?fixture=${fid}`);
+      C.ratings.data[fid] = {};
+      for(const teamData of fxPlayers){
+        for(const pe of (teamData.players||[])){
+          const pid     = pe.player?.id;
+          const rating  = pe.statistics?.[0]?.games?.rating;
+          if(pid && rating) C.ratings.data[fid][pid] = parseFloat(rating);
+        }
+      }
+    }
+
+    // Apply ratings to players — average across all games
+    for(const [pid, pm] of Object.entries(playerMap)){
+      const gameRatings = [];
+      for(const fid of fixtureIds){
+        const r = C.ratings.data[fid]?.[parseInt(pid)];
+        if(r) gameRatings.push(r);
+      }
+      if(gameRatings.length > 0){
+        pm.ratings    = gameRatings;
+        pm.avgRating  = Math.round((gameRatings.reduce((a,b)=>a+b,0)/gameRatings.length)*10)/10;
+      }
+    }
+
+    // ── STEP 7: Build club leaderboard ──
+    const clubStats = {};
+    for(const pm of Object.values(playerMap)){
+      if(!clubStats[pm.club]){
+        clubStats[pm.club] = {
+          club:      pm.club,
+          clubLogo:  pm.clubLogo,
+          players:   0,
+          goals:     0,
+          assists:   0,
+          ratings:   [],
+        };
+      }
+      const cs = clubStats[pm.club];
+      cs.players++;
+      cs.goals   += pm.goals   || 0;
+      cs.assists += pm.assists || 0;
+      if(pm.avgRating) cs.ratings.push(pm.avgRating);
+    }
+
+    const clubLeaderboard = Object.values(clubStats)
+      .map(cs=>({
+        ...cs,
+        ga:        cs.goals + cs.assists,
+        avgRating: cs.ratings.length
+          ? Math.round((cs.ratings.reduce((a,b)=>a+b,0)/cs.ratings.length)*10)/10
+          : null,
+      }))
+      .sort((a,b)=> b.ga - a.ga || (b.avgRating||0) - (a.avgRating||0))
+      .slice(0, 5);
 
     const players = Object.values(playerMap);
     const result  = {
       players,
+      clubLeaderboard,
       total:    players.length,
       matchDay: isMatchDay(),
       source:   'api-football.com',
