@@ -160,11 +160,13 @@ module.exports = async function handler(req, res){
       }
     }
 
-    // ── STEP 6: Ratings from ALL finished fixtures ──
+    // ── STEP 6: Ratings AND minutes from ALL finished fixtures ──
+    // This is the most reliable source — fixture data updates immediately after match
+    // Use this for BOTH ratings and minutes (fixes Xhaka/Amdouni missing minutes)
     const finishedFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
     const fixtureIds = finishedFixtures.map(f=>f.fixture?.id).filter(Boolean);
 
-    // Only fetch ratings for fixtures not already cached
+    // Only fetch fixture player data for new fixtures not already cached
     for(const fid of fixtureIds){
       if(C.ratings.data[fid]) continue;
       const fxPlayers = await get(`/fixtures/players?fixture=${fid}`);
@@ -172,21 +174,37 @@ module.exports = async function handler(req, res){
       for(const teamData of fxPlayers){
         for(const pe of (teamData.players||[])){
           const pid    = pe.player?.id;
-          const rating = pe.statistics?.[0]?.games?.rating;
-          if(pid && rating) C.ratings.data[fid][pid] = parseFloat(rating);
+          const stat   = pe.statistics?.[0];
+          const rating = stat?.games?.rating;
+          const mins   = stat?.games?.minutes;
+          if(pid) C.ratings.data[fid][pid] = {
+            rating: rating ? parseFloat(rating) : null,
+            mins:   mins   ? parseInt(mins)     : 0,
+          };
         }
       }
     }
 
-    // Apply ratings
+    // Apply ratings AND minutes from fixture data
     for(const [pid, pm] of Object.entries(playerMap)){
-      const gameRatings = fixtureIds
-        .map(fid => C.ratings.data[fid]?.[parseInt(pid)])
-        .filter(Boolean);
+      const gameRatings = [];
+      let totalMins = 0;
+
+      for(const fid of fixtureIds){
+        const entry = C.ratings.data[fid]?.[parseInt(pid)];
+        if(!entry) continue;
+        if(entry.rating) gameRatings.push(entry.rating);
+        if(entry.mins)   totalMins += entry.mins;
+      }
+
       if(gameRatings.length){
         pm.ratings   = gameRatings;
         pm.avgRating = Math.round((gameRatings.reduce((a,b)=>a+b,0)/gameRatings.length)*10)/10;
       }
+
+      // Use fixture minutes if per-team endpoint returned 0
+      // This fixes players like Xhaka who have ratings but 0 minutes
+      if(totalMins > pm.minutes) pm.minutes = totalMins;
     }
 
     // ── STEP 7: Club leaderboard ──
