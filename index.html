@@ -14,6 +14,8 @@
       --yellow: #f5c518; --red: #ff4d6d; --gold: #FFD700;
     }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* Hero */
     .hero { background: linear-gradient(135deg, #0a0f1e 0%, #0e1a35 60%, #0a2a1a 100%); border-bottom: 1px solid var(--border); padding: 2rem 2rem 1.5rem; }
     .hero-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; gap: 1rem; }
     .trophy { font-size: 3rem; filter: drop-shadow(0 0 16px rgba(255,215,0,0.4)); }
@@ -22,14 +24,25 @@
     .wc-pill { background: var(--gold); color: #000; font-size: 0.65rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 6px; display: inline-block; }
     .hero-tagline { font-size: 0.78rem; color: var(--text2); margin-top: 10px; font-style: italic; }
     .hero-tagline span { color: var(--green); font-style: normal; font-weight: 600; }
-    .footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text2); font-size: 0.78rem; line-height: 2; }
-    .footer-name { color: var(--gold); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; }
-    .footer-sub { font-size: 0.68rem; color: var(--text2); margin-top: 2px; }
-    .footer-badges { display: flex; justify-content: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-    .fbadge { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.68rem; }
+
+    /* Top scorers leaderboard */
     .main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+    .section-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); margin-bottom: 0.75rem; }
+    .scorers-board { display: flex; gap: 10px; margin-bottom: 1.75rem; flex-wrap: wrap; }
+    .scorer-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem 1rem; flex: 1; min-width: 150px; display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden; }
+    .scorer-card:first-child { border-color: rgba(255,215,0,0.3); background: linear-gradient(135deg, #111827, #1a1a0a); }
+    .scorer-rank { font-size: 1.4rem; font-weight: 700; color: var(--text2); min-width: 28px; }
+    .scorer-card:first-child .scorer-rank { color: var(--gold); }
+    .scorer-crest { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; }
+    .scorer-info { flex: 1; min-width: 0; }
+    .scorer-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .scorer-club { font-size: 0.65rem; color: var(--text2); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .scorer-goals { font-size: 1.1rem; font-weight: 700; color: var(--green); margin-left: auto; }
+    .scorer-goals span { font-size: 0.6rem; color: var(--text2); display: block; text-align: center; font-weight: 400; }
+
+    /* Controls */
     .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
-    .search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 240px; }
+    .search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 220px; }
     .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; opacity: 0.35; pointer-events: none; }
     .ctrl { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 0.8rem; color: var(--text); font-family: 'Inter', sans-serif; }
     .ctrl:focus { outline: none; border-color: rgba(255,255,255,0.2); }
@@ -38,6 +51,8 @@
     select.ctrl { cursor: pointer; }
     .chips { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
     .chip { font-size: 0.68rem; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; }
+
+    /* Refresh bar */
     .rbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 8px; }
     .cd-wrap { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--text2); }
     .cd-track { width: 80px; height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
@@ -47,18 +62,32 @@
     .rbtn:hover { border-color: rgba(255,255,255,0.25); color: var(--text); }
     .rbtn.spin { animation: pulse 0.8s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    /* Section dividers */
+    .section-divider { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); padding: 8px 0 6px; margin-top: 1.25rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .section-divider::after { content: ''; flex: 1; height: 1px; }
+
+    /* Table */
     .tbl-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 620px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 680px; }
     thead th { background: var(--surface2); color: var(--text2); font-weight: 500; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; }
     thead th:hover { color: var(--text); }
     thead th.active { color: var(--green); }
-    tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tbody tr:last-child td { border-bottom: none; }
     tbody tr:hover td { background: rgba(255,255,255,0.025); }
+    tbody tr.unplayed td { opacity: 0.5; }
     .pname { font-weight: 500; font-size: 0.84rem; }
-    .pnat { font-size: 0.68rem; color: var(--text2); margin-top: 1px; }
+    .pnat { font-size: 0.67rem; color: var(--text2); margin-top: 1px; display: flex; align-items: center; gap: 4px; }
+    .flag { width: 14px; height: 10px; object-fit: cover; border-radius: 1px; flex-shrink: 0; }
     .club-wrap { display: flex; align-items: center; gap: 7px; }
+    .club-logo { width: 18px; height: 18px; object-fit: contain; flex-shrink: 0; }
     .club-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .pos-badge { display: inline-block; font-size: 0.6rem; font-weight: 600; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em; vertical-align: middle; margin-left: 4px; }
+    .pos-GK  { background: rgba(77,166,255,0.15); color: var(--blue); }
+    .pos-DEF { background: rgba(0,214,143,0.12); color: var(--green); }
+    .pos-MID { background: rgba(245,197,24,0.12); color: var(--yellow); }
+    .pos-FWD { background: rgba(255,77,109,0.15); color: var(--red); }
     .sc { text-align: center; }
     .g { color: var(--green); font-weight: 600; }
     .a { color: var(--blue); font-weight: 600; }
@@ -68,9 +97,17 @@
     .msg-row td { text-align: center; padding: 3rem; color: var(--text2); font-size: 0.85rem; }
     .shimmer { background: linear-gradient(90deg,var(--surface2) 25%,#1f2e48 50%,var(--surface2) 75%); background-size: 200% 100%; animation: sh 1.4s infinite; border-radius: 4px; height: 13px; display: inline-block; }
     @keyframes sh { to { background-position: -200% 0; } }
+
+    /* Footer */
+    .footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text2); font-size: 0.78rem; line-height: 2; }
+    .footer-name { color: var(--gold); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; }
+    .footer-sub { font-size: 0.68rem; color: var(--text2); margin-top: 2px; }
+    .footer-badges { display: flex; justify-content: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .fbadge { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.68rem; }
   </style>
 </head>
 <body>
+
 <div class="hero">
   <div class="hero-inner">
     <div class="trophy">🏆</div>
@@ -84,6 +121,14 @@
 </div>
 
 <div class="main">
+
+  <!-- Top 5 Scorers Leaderboard -->
+  <div class="section-label">🏅 Top Scorers</div>
+  <div class="scorers-board" id="scorers-board">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- Controls -->
   <div class="controls">
     <div class="search-wrap">
       <span class="search-icon">⚽</span>
@@ -91,6 +136,13 @@
     </div>
     <select class="ctrl" id="club-f" onchange="renderTable()"><option value="">All clubs</option></select>
     <select class="ctrl" id="nat-f" onchange="renderTable()"><option value="">All nations</option></select>
+    <select class="ctrl" id="pos-f" onchange="renderTable()">
+      <option value="">All positions</option>
+      <option value="GK">GK</option>
+      <option value="DEF">DEF</option>
+      <option value="MID">MID</option>
+      <option value="FWD">FWD</option>
+    </select>
     <div class="chips">
       <span class="chip" id="chip-p">—</span>
       <span class="chip" id="chip-c">—</span>
@@ -106,118 +158,58 @@
     <button class="rbtn" id="rbtn" onclick="doRefresh()">↻ Refresh now</button>
   </div>
 
-  <div class="tbl-wrap">
-    <table>
-      <colgroup>
-        <col style="width:22%"><col style="width:20%"><col style="width:10%">
-        <col style="width:10%"><col style="width:11%"><col style="width:13%"><col style="width:14%">
-      </colgroup>
-      <thead>
-        <tr>
-          <th onclick="sortBy('name',this)">Player <span id="a-name">↕</span></th>
-          <th onclick="sortBy('club',this)">Club <span id="a-club">↕</span></th>
-          <th class="sc" onclick="sortBy('minutes',this)">Mins <span id="a-minutes">↕</span></th>
-          <th class="sc" onclick="sortBy('goals',this)">Goals <span id="a-goals">↕</span></th>
-          <th class="sc" onclick="sortBy('assists',this)">Assists <span id="a-assists">↕</span></th>
-          <th class="sc" onclick="sortBy('yellow',this)">Yellow <span id="a-yellow">↕</span></th>
-          <th class="sc" onclick="sortBy('red',this)">Red <span id="a-red">↕</span></th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+  <!-- Players who have played -->
+  <div id="played-section">
+    <div class="tbl-wrap">
+      <table>
+        <colgroup>
+          <col style="width:22%"><col style="width:20%"><col style="width:8%">
+          <col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:11%"><col style="width:11%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th onclick="sortBy('name',this)">Player <span id="a-name">↕</span></th>
+            <th onclick="sortBy('club',this)">Club <span id="a-club">↕</span></th>
+            <th class="sc" onclick="sortBy('position',this)">Pos <span id="a-position">↕</span></th>
+            <th class="sc" onclick="sortBy('minutes',this)">Mins <span id="a-minutes">↕</span></th>
+            <th class="sc" onclick="sortBy('goals',this)">Goals <span id="a-goals">↓</span></th>
+            <th class="sc" onclick="sortBy('assists',this)">Assists <span id="a-assists">↕</span></th>
+            <th class="sc" onclick="sortBy('yellow',this)">Yellow <span id="a-yellow">↕</span></th>
+            <th class="sc" onclick="sortBy('red',this)">Red <span id="a-red">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-played"></tbody>
+      </table>
+    </div>
   </div>
+
+  <!-- Players yet to play -->
+  <div id="bench-section">
+    <div class="section-divider">⏳ Yet to play</div>
+    <div class="tbl-wrap">
+      <table>
+        <colgroup>
+          <col style="width:22%"><col style="width:20%"><col style="width:8%">
+          <col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:11%"><col style="width:11%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th onclick="sortByBench('name',this)">Player <span id="b-name">↕</span></th>
+            <th onclick="sortByBench('club',this)">Club <span id="b-club">↕</span></th>
+            <th class="sc">Pos</th>
+            <th class="sc">Mins</th>
+            <th class="sc">Goals</th>
+            <th class="sc">Assists</th>
+            <th class="sc">Yellow</th>
+            <th class="sc">Red</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-bench"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
-
-<script>
-  const REFRESH_MS = 5 * 60 * 1000;
-  const REFRESH_S  = 300;
-  const CLUB_COLORS = {
-    Arsenal:'#EF0107',Chelsea:'#034694','Manchester City':'#6CABDD',
-    'Manchester United':'#DA291C',Liverpool:'#C8102E',Tottenham:'#132257',
-    Newcastle:'#241F20','Aston Villa':'#670E36','West Ham':'#7A263A',
-    Brighton:'#0057B8',Brentford:'#D20000',Fulham:'#CC0000',
-    'Nottingham Forest':'#DD0000',Everton:'#003399','Crystal Palace':'#1B458F',
-    Wolverhampton:'#FDB913',Leicester:'#003090',Southampton:'#D71920',
-    Ipswich:'#0044A9',Bournemouth:'#DA291C'
-  };
-  function clubColor(n){if(!n)return'#555';for(const[k,v]of Object.entries(CLUB_COLORS))if(n.toLowerCase().includes(k.toLowerCase().split(' ')[0]))return v;return'#555';}
-
-  let players=[],sortKey='goals',sortAsc=false,cdTimer,refTimer,cdVal=REFRESH_S;
-
-  async function fetchStats(){
-    setBusy(true);
-    try{
-      const r=await fetch("/api/stats",{method:"GET"});
-      if(!r.ok){const e=await r.json();throw new Error(e.error||'Server error');}
-      const json=await r.json();
-      players=json.players||json;
-      updateFilters();renderTable();updateChips();
-      document.getElementById('last-upd').textContent='· Updated '+new Date().toLocaleTimeString();
-    }catch(e){
-      document.getElementById('tbody').innerHTML=`<tr class="msg-row"><td colspan="7">Error: ${e.message}</td></tr>`;
-    }
-    setBusy(false);
-  }
-
-  function setBusy(on){
-    document.getElementById('rbtn').classList.toggle('spin',on);
-    if(on) document.getElementById('tbody').innerHTML=Array.from({length:6},()=>`<tr>${Array.from({length:7},(_,i)=>`<td${i>1?' class="sc"':''}><div class="shimmer" style="width:${i===0?'120px':i===1?'90px':'28px'}"></div></td>`).join('')}</tr>`).join('');
-  }
-
-  function updateFilters(){
-    const clubs=[...new Set(players.map(p=>p.club))].sort();
-    const nats=[...new Set(players.map(p=>p.nationality||''))].filter(Boolean).sort();
-    const cf=document.getElementById('club-f'),nf=document.getElementById('nat-f');
-    const pc=cf.value,pn=nf.value;
-    cf.innerHTML='<option value="">All clubs</option>'+clubs.map(c=>`<option${c===pc?' selected':''}>${c}</option>`).join('');
-    nf.innerHTML='<option value="">All nations</option>'+nats.map(n=>`<option${n===pn?' selected':''}>${n}</option>`).join('');
-  }
-
-  function updateChips(){
-    document.getElementById('chip-p').textContent=players.length+' players';
-    document.getElementById('chip-c').textContent=new Set(players.map(p=>p.club)).size+' clubs';
-  }
-
-  function renderTable(){
-    const q=document.getElementById('search').value.toLowerCase();
-    const cf=document.getElementById('club-f').value;
-    const nf=document.getElementById('nat-f').value;
-    let list=players.filter(p=>(!q||p.name.toLowerCase().includes(q)||(p.club||'').toLowerCase().includes(q)||(p.nationality||'').toLowerCase().includes(q))&&(!cf||p.club===cf)&&(!nf||p.nationality===nf));
-    list.sort((a,b)=>{let va=a[sortKey],vb=b[sortKey];if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}return sortAsc?(va>vb?1:-1):(va<vb?1:-1);});
-    if(!list.length){document.getElementById('tbody').innerHTML='<tr class="msg-row"><td colspan="7">No players match your filters.</td></tr>';return;}
-    document.getElementById('tbody').innerHTML=list.map(p=>`<tr>
-      <td><div class="pname">${p.name}</div><div class="pnat">${p.nationality||'—'}</div></td>
-      <td><div class="club-wrap"><span class="club-dot" style="background:${clubColor(p.club)}"></span><span>${p.club||'—'}</span></div></td>
-      <td class="sc">${p.minutes?p.minutes+"'":'—'}</td>
-      <td class="sc ${p.goals>0?'g':''}">${p.goals}</td>
-      <td class="sc ${p.assists>0?'a':''}">${p.assists}</td>
-      <td class="sc">${p.yellow>0?'<span class="yc"></span>'+(p.yellow>1?'<span class="cx">×'+p.yellow+'</span>':''):'—'}</td>
-      <td class="sc">${p.red>0?'<span class="rc"></span>':'—'}</td>
-    </tr>`).join('');
-  }
-
-  function sortBy(key,th){
-    sortAsc=sortKey===key?!sortAsc:(key==='name'||key==='club');sortKey=key;
-    document.querySelectorAll('thead th').forEach(t=>{t.classList.remove('active');t.querySelector('span').textContent='↕';});
-    th.classList.add('active');th.querySelector('span').textContent=sortAsc?'↑':'↓';
-    renderTable();
-  }
-
-  function startCountdown(){
-    clearInterval(cdTimer);clearTimeout(refTimer);cdVal=REFRESH_S;tick();
-    cdTimer=setInterval(tick,1000);refTimer=setTimeout(doRefresh,REFRESH_MS);
-  }
-
-  function tick(){
-    if(cdVal<=0){clearInterval(cdTimer);return;}
-    const m=Math.floor(cdVal/60),s=cdVal%60;
-    document.getElementById('cd-s').textContent=m+':'+String(s).padStart(2,'0');
-    document.getElementById('cd-fill').style.width=(cdVal/REFRESH_S*100)+'%';cdVal--;
-  }
-
-  function doRefresh(){clearInterval(cdTimer);clearTimeout(refTimer);fetchStats().then(startCountdown);}
-  doRefresh();
-</script>
 
 <div class="footer">
   <div class="footer-name">⚽ Built by Aatman</div>
@@ -230,5 +222,178 @@
     <span class="fbadge">🔄 Auto-refreshes</span>
   </div>
 </div>
+
+<script>
+const REFRESH_MS = 5*60*1000, REFRESH_S = 300;
+const CLUB_COLORS = {
+  Arsenal:'#EF0107',Chelsea:'#034694','Manchester City':'#6CABDD',
+  'Manchester United':'#DA291C',Liverpool:'#C8102E',Tottenham:'#132257',
+  Newcastle:'#241F20','Aston Villa':'#670E36','West Ham':'#7A263A',
+  Brighton:'#0057B8',Brentford:'#D20000',Fulham:'#CC0000',
+  'Nottingham Forest':'#DD0000',Everton:'#003399','Crystal Palace':'#1B458F',
+  Wolverhampton:'#FDB913',Leicester:'#003090',Southampton:'#D71920',
+  Ipswich:'#0044A9',Bournemouth:'#DA291C'
+};
+function clubColor(n){if(!n)return'#555';for(const[k,v]of Object.entries(CLUB_COLORS))if(n.toLowerCase().includes(k.toLowerCase().split(' ')[0]))return v;return'#555';}
+
+let players=[], sortKey='goals', sortAsc=false, benchSortKey='name', benchSortAsc=true;
+let cdTimer, refTimer, cdVal=REFRESH_S;
+
+async function fetchStats(){
+  setBusy(true);
+  try{
+    const r=await fetch('/api/stats',{method:'GET'});
+    if(!r.ok){const e=await r.json();throw new Error(e.error||'Server error');}
+    const json=await r.json();
+    players=json.players||json;
+    updateFilters(); renderAll(); updateChips();
+    document.getElementById('last-upd').textContent='· Updated '+new Date().toLocaleTimeString();
+  }catch(e){
+    document.getElementById('tbody-played').innerHTML=`<tr class="msg-row"><td colspan="8">Error: ${e.message}</td></tr>`;
+    document.getElementById('tbody-bench').innerHTML='';
+  }
+  setBusy(false);
+}
+
+function setBusy(on){
+  document.getElementById('rbtn').classList.toggle('spin',on);
+  if(on){
+    const shimRow=Array.from({length:5},()=>`<tr>${Array.from({length:8},(_,i)=>`<td${i>1?' class="sc"':''}><div class="shimmer" style="width:${i===0?'110px':i===1?'90px':'24px'}"></div></td>`).join('')}</tr>`).join('');
+    document.getElementById('tbody-played').innerHTML=shimRow;
+    document.getElementById('tbody-bench').innerHTML='';
+    document.getElementById('scorers-board').innerHTML='';
+  }
+}
+
+function updateFilters(){
+  const clubs=[...new Set(players.map(p=>p.club))].sort();
+  const nats=[...new Set(players.map(p=>p.nationality||''))].filter(Boolean).sort();
+  const cf=document.getElementById('club-f'),nf=document.getElementById('nat-f');
+  const pc=cf.value,pn=nf.value;
+  cf.innerHTML='<option value="">All clubs</option>'+clubs.map(c=>`<option${c===pc?' selected':''}>${c}</option>`).join('');
+  nf.innerHTML='<option value="">All nations</option>'+nats.map(n=>`<option${n===pn?' selected':''}>${n}</option>`).join('');
+}
+
+function updateChips(){
+  document.getElementById('chip-p').textContent=players.length+' players';
+  document.getElementById('chip-c').textContent=new Set(players.map(p=>p.club)).size+' clubs';
+}
+
+function getFiltered(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const cf=document.getElementById('club-f').value;
+  const nf=document.getElementById('nat-f').value;
+  const pf=document.getElementById('pos-f').value;
+  return players.filter(p=>
+    (!q||p.name.toLowerCase().includes(q)||(p.club||'').toLowerCase().includes(q)||(p.nationality||'').toLowerCase().includes(q))&&
+    (!cf||p.club===cf)&&(!nf||p.nationality===nf)&&(!pf||p.position===pf)
+  );
+}
+
+function renderAll(){
+  updateScorers();
+  renderTable();
+}
+
+function updateScorers(){
+  const top = [...players].sort((a,b)=>b.goals-a.goals||b.assists-a.assists).filter(p=>p.goals>0).slice(0,5);
+  if(!top.length){
+    document.getElementById('scorers-board').innerHTML='<div style="font-size:0.78rem;color:var(--text2);padding:0.5rem 0">No goals scored yet — tournament just started! ⏳</div>';
+    return;
+  }
+  const medals=['🥇','🥈','🥉','4','5'];
+  document.getElementById('scorers-board').innerHTML=top.map((p,i)=>`
+    <div class="scorer-card">
+      <div class="scorer-rank">${medals[i]}</div>
+      ${p.clubCrest?`<img class="scorer-crest" src="${p.clubCrest}" alt="" onerror="this.style.display='none'">`:''}
+      <div class="scorer-info">
+        <div class="scorer-name">${p.name}</div>
+        <div class="scorer-club">${p.club}</div>
+      </div>
+      <div class="scorer-goals">${p.goals}<span>goals</span></div>
+    </div>`).join('');
+}
+
+function rowHtml(p){
+  const flagImg = p.flag ? `<img class="flag" src="${p.flag}" alt="" onerror="this.style.display='none'">` : '';
+  const clubImg = p.clubCrest
+    ? `<img class="club-logo" src="${p.clubCrest}" alt="" onerror="this.outerHTML='<span class=\\"club-dot\\" style=\\"background:${clubColor(p.club)}\\"></span>'">`
+    : `<span class="club-dot" style="background:${clubColor(p.club)}"></span>`;
+  const posCls = p.position && p.position!=='—' ? `pos-${p.position}` : '';
+  return `<tr${p.minutes===0?' class="unplayed"':''}>
+    <td>
+      <div class="pname">${p.name}${posCls?`<span class="pos-badge ${posCls}">${p.position}</span>`:''}</div>
+      <div class="pnat">${flagImg}${p.nationality||'—'}</div>
+    </td>
+    <td><div class="club-wrap">${clubImg}<span>${p.club||'—'}</span></div></td>
+    <td class="sc"><span class="pos-badge ${posCls}">${p.position||'—'}</span></td>
+    <td class="sc">${p.minutes?p.minutes+"'":'—'}</td>
+    <td class="sc ${p.goals>0?'g':''}">${p.goals}</td>
+    <td class="sc ${p.assists>0?'a':''}">${p.assists}</td>
+    <td class="sc">${p.yellow>0?'<span class="yc"></span>'+(p.yellow>1?'<span class="cx">×'+p.yellow+'</span>':''):'—'}</td>
+    <td class="sc">${p.red>0?'<span class="rc"></span>':'—'}</td>
+  </tr>`;
+}
+
+function renderTable(){
+  const filtered=getFiltered();
+  const played=filtered.filter(p=>p.minutes>0);
+  const bench=filtered.filter(p=>p.minutes===0);
+
+  // Sort played
+  played.sort((a,b)=>{
+    let va=a[sortKey],vb=b[sortKey];
+    if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
+    return sortAsc?(va>vb?1:-1):(va<vb?1:-1);
+  });
+
+  // Sort bench
+  bench.sort((a,b)=>{
+    let va=a[benchSortKey]||'',vb=b[benchSortKey]||'';
+    if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
+    return benchSortAsc?(va>vb?1:-1):(va<vb?1:-1);
+  });
+
+  document.getElementById('tbody-played').innerHTML = played.length
+    ? played.map(rowHtml).join('')
+    : '<tr class="msg-row"><td colspan="8">No players match your filters.</td></tr>';
+
+  document.getElementById('tbody-bench').innerHTML = bench.length
+    ? bench.map(rowHtml).join('')
+    : '<tr class="msg-row"><td colspan="8">All players have played! ✅</td></tr>';
+
+  document.getElementById('bench-section').style.display = bench.length ? '' : 'none';
+}
+
+function sortBy(key,th){
+  sortAsc=sortKey===key?!sortAsc:(key==='name'||key==='club'||key==='position');
+  sortKey=key;
+  document.querySelectorAll('#played-section thead th').forEach(t=>{t.classList.remove('active');t.querySelector('span').textContent='↕';});
+  th.classList.add('active');
+  th.querySelector('span').textContent=sortAsc?'↑':'↓';
+  renderTable();
+}
+
+function sortByBench(key,th){
+  benchSortAsc=benchSortKey===key?!benchSortAsc:true;
+  benchSortKey=key;
+  document.querySelectorAll('#bench-section thead th').forEach(t=>{if(t.querySelector('span'))t.querySelector('span').textContent='↕';});
+  if(th.querySelector('span'))th.querySelector('span').textContent=benchSortAsc?'↑':'↓';
+  renderTable();
+}
+
+function startCountdown(){
+  clearInterval(cdTimer);clearTimeout(refTimer);cdVal=REFRESH_S;tick();
+  cdTimer=setInterval(tick,1000);refTimer=setTimeout(doRefresh,REFRESH_MS);
+}
+function tick(){
+  if(cdVal<=0){clearInterval(cdTimer);return;}
+  const m=Math.floor(cdVal/60),s=cdVal%60;
+  document.getElementById('cd-s').textContent=m+':'+String(s).padStart(2,'0');
+  document.getElementById('cd-fill').style.width=(cdVal/REFRESH_S*100)+'%';cdVal--;
+}
+function doRefresh(){clearInterval(cdTimer);clearTimeout(refTimer);fetchStats().then(startCountdown);}
+doRefresh();
+</script>
 </body>
 </html>
