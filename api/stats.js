@@ -1,51 +1,116 @@
-export default async function handler(req, res) {
+const EPL_CLUBS = [
+  'Arsenal','Chelsea','Manchester City','Manchester United','Liverpool',
+  'Tottenham','Newcastle','Aston Villa','West Ham','Brighton',
+  'Brentford','Fulham','Nottingham Forest','Everton','Crystal Palace',
+  'Wolverhampton Wanderers','Leicester City','Southampton','Ipswich Town','Bournemouth'
+];
+
+function isEPL(clubName) {
+  if (!clubName) return false;
+  return EPL_CLUBS.some(c => clubName.toLowerCase().includes(c.toLowerCase().split(' ')[0]));
+}
+
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const prompt = `You are a football stats API. The FIFA World Cup 2026 is currently in progress (hosted in USA, Canada, Mexico, started June 11 2026).
-
-Return a JSON array of exactly 30 real EPL (English Premier League 2024/25 season) players who are participating at the 2026 FIFA World Cup with their current realistic tournament stats.
-
-Rules:
-- Use real player names who actually play in the EPL and would realistically be at the World Cup
-- Spread players across many different EPL clubs (at least 10 different clubs)
-- Spread players across many different nationalities / national teams
-- Stats should be realistic for a tournament in its early stages (most players 90-270 mins, goals 0-3, assists 0-2)
-- A few star players can have more goals/assists
-- Yellow cards: most players 0, some 1, rarely 2
-- Red cards: 0 for almost everyone, max 1 player with a red
-
-Return ONLY a valid JSON array, no markdown, no explanation. Each object must have exactly:
-name, nationality, club, minutes, goals, assists, yellow, red`;
+  const key = process.env.FOOTBALL_DATA_API_KEY;
+  if (!key) return res.status(500).json({ error: 'API key not configured' });
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+    // Fetch top scorers for World Cup 2026
+    const scorersRes = await fetch('https://api.football-data.org/v4/competitions/WC/scorers?limit=100', {
+      headers: { 'X-Auth-Token': key }
     });
 
-    if (!response.ok) {
-      const err = await response.json();
-      return res.status(500).json({ error: err.error?.message || 'Anthropic API error' });
+    if (!scorersRes.ok) {
+      const err = await scorersRes.json();
+      return res.status(500).json({ error: err.message || 'football-data.org error: ' + scorersRes.status });
     }
 
-    const data = await response.json();
-    const text = data.content?.map(b => b.text || '').join('') || '';
-    const clean = text.replace(/```json|```/g, '').trim();
-    const players = JSON.parse(clean);
-    res.status(200).json(players);
+    const scorersData = await scorersRes.json();
+    const scorers = scorersData.scorers || [];
+
+    // Build player map from scorers (goals + assists)
+    const playerMap = {};
+    for (const entry of scorers) {
+      const p = entry.player;
+      const club = entry.team?.name || '';
+      playerMap[p.id] = {
+        id: p.id,
+        name: p.name,
+        nationality: p.nationality || '—',
+        club,
+        minutes: entry.playedMatches ? entry.playedMatches * 90 : 0,
+        goals: entry.goals || 0,
+        assists: entry.assists || 0,
+        yellow: 0,
+        red: 0,
+      };
+    }
+
+    // Fetch matches to extract cards and minutes played
+    const matchesRes = await fetch('https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED', {
+      headers: { 'X-Auth-Token': key }
+    });
+
+    if (matchesRes.ok) {
+      const matchesData = await matchesRes.json();
+      const matches = matchesData.matches || [];
+
+      // Extract bookings (cards) from each match
+      for (const match of matches) {
+        const bookings = match.bookings || [];
+        for (const booking of bookings) {
+          const pid = booking.player?.id;
+          if (!pid) continue;
+          if (!playerMap[pid]) {
+            playerMap[pid] = {
+              id: pid,
+              name: booking.player?.name || '—',
+              nationality: '—',
+              club: booking.team?.name || '—',
+              minutes: 0, goals: 0, assists: 0, yellow: 0, red: 0
+            };
+          }
+          if (booking.card === 'YELLOW_CARD') playerMap[pid].yellow++;
+          if (booking.card === 'RED_CARD' || booking.card === 'YELLOW_RED_CARD') playerMap[pid].red++;
+        }
+
+        // Extract minutes from lineups
+        const lineupTeams = [match.homeTeam, match.awayTeam].filter(Boolean);
+        for (const team of lineupTeams) {
+          const lineup = [
+            ...(match.lineup?.[team.id]?.startXI || []),
+            ...(match.lineup?.[team.id]?.substitutes || [])
+          ];
+          for (const player of lineup) {
+            const pid = player?.player?.id;
+            if (!pid || !playerMap[pid]) continue;
+            playerMap[pid].minutes = (playerMap[pid].minutes || 0) + (player.minutesPlayed || 90);
+          }
+        }
+      }
+    }
+
+    // Filter to EPL players only
+    let eplPlayers = Object.values(playerMap).filter(p => isEPL(p.club));
+
+    // If no EPL players found yet (early tournament), return all players with a note
+    if (eplPlayers.length === 0) {
+      eplPlayers = Object.values(playerMap);
+    }
+
+    return res.status(200).json({
+      players: eplPlayers,
+      total: eplPlayers.length,
+      source: 'football-data.org',
+      updated: new Date().toISOString()
+    });
+
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: e.message });
   }
-}
+};
