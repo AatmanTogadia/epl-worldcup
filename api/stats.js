@@ -1,106 +1,147 @@
+const BASE = 'https://v3.football.api-sports.io';
+const WC_LEAGUE = 1;
+const WC_SEASON = 2026;
+const EPL_LEAGUE = 39;
+const EPL_SEASON = 2025;
+
+function posLabel(pos) {
+  if (!pos) return '—';
+  const p = pos.toUpperCase();
+  if (p.includes('GOALKEEPER') || p === 'G') return 'GK';
+  if (p.includes('DEFENDER') || p === 'D') return 'DEF';
+  if (p.includes('MIDFIELDER') || p === 'M') return 'MID';
+  if (p.includes('ATTACKER') || p === 'F') return 'FWD';
+  return pos;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const key = process.env.FOOTBALL_DATA_API_KEY;
-  if (!key) return res.status(500).json({ error: 'API key not configured' });
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) return res.status(500).json({ error: 'API_FOOTBALL_KEY not configured' });
 
-  const headers = { 'X-Auth-Token': key };
+  const headers = {
+    'x-apisports-key': key
+  };
 
-  function posLabel(pos) {
-    if (!pos) return '—';
-    const p = pos.toUpperCase();
-    if (p.includes('KEEPER') || p === 'GK') return 'GK';
-    if (p.includes('DEFENCE') || p.includes('DEFENDER') || p === 'DEF') return 'DEF';
-    if (p.includes('MIDFIELD') || p === 'MID') return 'MID';
-    if (p.includes('OFFENCE') || p.includes('FORWARD') || p.includes('ATTACK') || p === 'FWD') return 'FWD';
-    return pos;
+  async function apiFetch(path) {
+    const r = await fetch(`${BASE}${path}`, { headers });
+    if (!r.ok) {
+      const e = await r.json();
+      throw new Error(e.message || `HTTP ${r.status} on ${path}`);
+    }
+    const data = await r.json();
+    if (data.errors && Object.keys(data.errors).length > 0) {
+      throw new Error(JSON.stringify(data.errors));
+    }
+    return data.response;
   }
 
   try {
-    // Step 1: Get all EPL teams + their squads (includes position)
-    const teamsRes = await fetch('https://api.football-data.org/v4/competitions/PL/teams', { headers });
-    if (!teamsRes.ok) { const e = await teamsRes.json(); throw new Error('EPL teams: ' + (e.message || teamsRes.status)); }
-    const teamsData = await teamsRes.json();
-    const eplTeams = teamsData.teams || [];
+    // Step 1: Get all EPL teams with squads (league=39, season=2025)
+    const eplTeams = await apiFetch(`/teams?league=${EPL_LEAGUE}&season=${EPL_SEASON}`);
 
-    // playerId -> { club, name, nationality, position, crest }
-    const eplPlayerMap = {};
-    const clubCrests = {};
-    for (const team of eplTeams) {
-      clubCrests[team.name] = team.crest || '';
-      for (const player of (team.squad || [])) {
-        eplPlayerMap[player.id] = {
-          club: team.name,
-          clubCrest: team.crest || '',
-          name: player.name,
-          nationality: player.nationality || '—',
-          position: posLabel(player.position),
-        };
-      }
-    }
-
-    // Step 2: Get all WC teams to find which players are at the tournament
-    const wcTeamsRes = await fetch('https://api.football-data.org/v4/competitions/WC/teams', { headers });
-    if (!wcTeamsRes.ok) { const e = await wcTeamsRes.json(); throw new Error('WC teams: ' + (e.message || wcTeamsRes.status)); }
-    const wcTeamsData = await wcTeamsRes.json();
-
-    // playerId -> { nationalTeam, flag }
-    const wcPlayerNation = {};
-    for (const team of (wcTeamsData.teams || [])) {
-      for (const player of (team.squad || [])) {
-        wcPlayerNation[player.id] = { nation: team.name, flag: team.crest || '' };
-      }
-    }
-
-    // Step 3: Build full player list — all EPL players at WC with 0 stats
-    const playerMap = {};
-    for (const [pid, info] of Object.entries(eplPlayerMap)) {
-      const wc = wcPlayerNation[pid];
-      if (!wc) continue;
-      playerMap[pid] = {
-        id: parseInt(pid),
-        name: info.name,
-        nationality: wc.nation,
-        flag: wc.flag,
-        club: info.club,
-        clubCrest: info.clubCrest,
-        position: info.position,
-        minutes: 0, goals: 0, assists: 0, yellow: 0, red: 0,
-      };
-    }
-
-    // Step 4: Layer in scorer stats
-    const scorersRes = await fetch('https://api.football-data.org/v4/competitions/WC/scorers?limit=100', { headers });
-    if (scorersRes.ok) {
-      const scorersData = await scorersRes.json();
-      for (const entry of (scorersData.scorers || [])) {
-        const pid = entry.player?.id;
-        if (!pid || !playerMap[pid]) continue;
-        playerMap[pid].goals = entry.goals || 0;
-        playerMap[pid].assists = entry.assists || 0;
-        playerMap[pid].minutes = (entry.playedMatches || 0) * 90;
-      }
-    }
-
-    // Step 5: Layer in cards from finished matches
-    const matchesRes = await fetch('https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED', { headers });
-    if (matchesRes.ok) {
-      const matchesData = await matchesRes.json();
-      for (const match of (matchesData.matches || [])) {
-        for (const booking of (match.bookings || [])) {
-          const pid = booking.player?.id;
-          if (!pid || !playerMap[pid]) continue;
-          if (booking.card === 'YELLOW_CARD') playerMap[pid].yellow++;
-          if (booking.card === 'RED_CARD' || booking.card === 'YELLOW_RED_CARD') playerMap[pid].red++;
+    // For each EPL team, get their squad
+    const eplPlayerMap = {}; // playerId -> { club, clubLogo, position }
+    for (const entry of eplTeams) {
+      const team = entry.team;
+      const squadRes = await apiFetch(`/players/squads?team=${team.id}`);
+      for (const squadEntry of (squadRes || [])) {
+        for (const player of (squadEntry.players || [])) {
+          eplPlayerMap[player.id] = {
+            club: team.name,
+            clubLogo: team.logo || '',
+            position: posLabel(player.position),
+          };
         }
       }
     }
 
+    // Step 2: Get all WC players with stats — paginated
+    const playerMap = {}; // playerId -> full stats object
+
+    // Fetch page 1 to get total pages
+    const firstPage = await fetch(`${BASE}/players?league=${WC_LEAGUE}&season=${WC_SEASON}&page=1`, { headers });
+    const firstData = await firstPage.json();
+    const totalPages = firstData.paging?.total || 1;
+    const allWcPlayers = [...(firstData.response || [])];
+
+    // Fetch remaining pages (up to 10 to stay within rate limits)
+    const pagesToFetch = Math.min(totalPages, 10);
+    for (let page = 2; page <= pagesToFetch; page++) {
+      const pageData = await apiFetch(`/players?league=${WC_LEAGUE}&season=${WC_SEASON}&page=${page}`);
+      allWcPlayers.push(...(pageData || []));
+    }
+
+    // Build WC player stats — only keep EPL players
+    for (const entry of allWcPlayers) {
+      const p = entry.player;
+      const epl = eplPlayerMap[p.id];
+      if (!epl) continue; // not an EPL player
+
+      const stat = entry.statistics?.[0]; // WC stats
+      playerMap[p.id] = {
+        id: p.id,
+        name: p.name,
+        photo: p.photo || '',
+        nationality: p.nationality || '—',
+        flag: `https://media.api-sports.io/flags/${(p.nationality || '').toLowerCase().replace(/ /g, '-')}.svg`,
+        club: epl.club,
+        clubLogo: epl.clubLogo,
+        position: epl.position || posLabel(stat?.games?.position),
+        minutes: stat?.games?.minutes || 0,
+        appearances: stat?.games?.appearences || 0,
+        goals: stat?.goals?.total || 0,
+        assists: stat?.goals?.assists || 0,
+        yellow: stat?.cards?.yellow || 0,
+        red: (stat?.cards?.red || 0) + (stat?.cards?.yellowred || 0),
+      };
+    }
+
+    // Step 3: For EPL players NOT found via WC stats (played but didn't score/get cards)
+    // Get WC squads to ensure we list everyone
+    const wcSquads = await apiFetch(`/players/squads?league=${WC_LEAGUE}&season=${WC_SEASON}`);
+    for (const squadEntry of (wcSquads || [])) {
+      const nation = squadEntry.team?.name || '—';
+      for (const player of (squadEntry.players || [])) {
+        if (playerMap[player.id]) {
+          // Already have stats — just make sure nationality is set
+          playerMap[player.id].nationality = nation;
+          continue;
+        }
+        const epl = eplPlayerMap[player.id];
+        if (!epl) continue; // not EPL
+        // Add with 0 stats
+        playerMap[player.id] = {
+          id: player.id,
+          name: player.name,
+          photo: player.photo || '',
+          nationality: nation,
+          flag: `https://media.api-sports.io/flags/${nation.toLowerCase().replace(/ /g, '-')}.svg`,
+          club: epl.club,
+          clubLogo: epl.clubLogo,
+          position: epl.position || posLabel(player.position),
+          minutes: 0,
+          appearances: 0,
+          goals: 0,
+          assists: 0,
+          yellow: 0,
+          red: 0,
+        };
+      }
+    }
+
     const players = Object.values(playerMap);
-    return res.status(200).json({ players, total: players.length, clubCrests, source: 'football-data.org', updated: new Date().toISOString() });
+
+    return res.status(200).json({
+      players,
+      total: players.length,
+      source: 'api-football.com',
+      updated: new Date().toISOString()
+    });
 
   } catch (e) {
     return res.status(500).json({ error: e.message });
