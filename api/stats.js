@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
   const headers = { 'X-Auth-Token': key };
 
   try {
-    // Step 1: Get all EPL teams (competition code PL = Premier League)
+    // Step 1: Get all EPL teams + their squads
     const teamsRes = await fetch('https://api.football-data.org/v4/competitions/PL/teams', { headers });
     if (!teamsRes.ok) {
       const e = await teamsRes.json();
@@ -19,64 +19,76 @@ module.exports = async function handler(req, res) {
     const teamsData = await teamsRes.json();
     const eplTeams = teamsData.teams || [];
 
-    // Step 2: Build a map of player ID -> EPL club name from all EPL squads
-    const eplPlayerMap = {}; // playerId -> clubName
+    // Build playerId -> { clubName, playerName, nationality, position } from EPL squads
+    const eplPlayerMap = {};
     for (const team of eplTeams) {
-      const squad = team.squad || [];
-      for (const player of squad) {
-        eplPlayerMap[player.id] = team.name;
+      for (const player of (team.squad || [])) {
+        eplPlayerMap[player.id] = {
+          club: team.name,
+          name: player.name,
+          nationality: player.nationality || '—',
+          position: player.position || '—',
+        };
       }
     }
 
-    // Step 3: Get World Cup top scorers
-    const scorersRes = await fetch('https://api.football-data.org/v4/competitions/WC/scorers?limit=100', { headers });
-    if (!scorersRes.ok) {
-      const e = await scorersRes.json();
-      throw new Error('WC scorers error: ' + (e.message || scorersRes.status));
+    // Step 2: Get all WC squads to find which players are actually at the tournament
+    const wcSquadsRes = await fetch('https://api.football-data.org/v4/competitions/WC/teams', { headers });
+    if (!wcSquadsRes.ok) {
+      const e = await wcSquadsRes.json();
+      throw new Error('WC teams error: ' + (e.message || wcSquadsRes.status));
     }
-    const scorersData = await scorersRes.json();
-    const scorers = scorersData.scorers || [];
+    const wcSquadsData = await wcSquadsRes.json();
+    const wcTeams = wcSquadsData.teams || [];
 
-    // Step 4: Cross-reference — keep only players in EPL squads
+    // Build set of player IDs at the WC + their national team name
+    const wcPlayerNation = {}; // playerId -> nationalTeamName
+    for (const team of wcTeams) {
+      for (const player of (team.squad || [])) {
+        wcPlayerNation[player.id] = team.name;
+      }
+    }
+
+    // Step 3: Find EPL players who are at the WC — start all with 0 stats
     const playerMap = {};
-    for (const entry of scorers) {
-      const p = entry.player;
-      const eplClub = eplPlayerMap[p.id];
-      if (!eplClub) continue; // not an EPL player
-
-      playerMap[p.id] = {
-        id: p.id,
-        name: p.name,
-        nationality: p.nationality || entry.team?.name || '—',
-        club: eplClub,
-        minutes: (entry.playedMatches || 0) * 90,
-        goals: entry.goals || 0,
-        assists: entry.assists || 0,
+    for (const [pid, info] of Object.entries(eplPlayerMap)) {
+      const nation = wcPlayerNation[pid];
+      if (!nation) continue; // not at the WC
+      playerMap[pid] = {
+        id: parseInt(pid),
+        name: info.name,
+        nationality: nation,
+        club: info.club,
+        minutes: 0,
+        goals: 0,
+        assists: 0,
         yellow: 0,
         red: 0,
       };
     }
 
-    // Step 5: Get finished WC matches to extract cards
+    // Step 4: Layer in WC scorer stats (goals + assists)
+    const scorersRes = await fetch('https://api.football-data.org/v4/competitions/WC/scorers?limit=100', { headers });
+    if (scorersRes.ok) {
+      const scorersData = await scorersRes.json();
+      for (const entry of (scorersData.scorers || [])) {
+        const pid = entry.player?.id;
+        if (!pid || !playerMap[pid]) continue;
+        playerMap[pid].goals = entry.goals || 0;
+        playerMap[pid].assists = entry.assists || 0;
+        playerMap[pid].minutes = (entry.playedMatches || 0) * 90;
+      }
+    }
+
+    // Step 5: Layer in cards + better minutes from finished matches
     const matchesRes = await fetch('https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED', { headers });
     if (matchesRes.ok) {
       const matchesData = await matchesRes.json();
       for (const match of (matchesData.matches || [])) {
+        // Cards
         for (const booking of (match.bookings || [])) {
           const pid = booking.player?.id;
-          if (!pid) continue;
-          const eplClub = eplPlayerMap[pid];
-          if (!eplClub) continue; // not EPL
-          if (!playerMap[pid]) {
-            playerMap[pid] = {
-              id: pid,
-              name: booking.player?.name || '—',
-              nationality: booking.team?.name || '—',
-              club: eplClub,
-              minutes: 90,
-              goals: 0, assists: 0, yellow: 0, red: 0
-            };
-          }
+          if (!pid || !playerMap[pid]) continue;
           if (booking.card === 'YELLOW_CARD') playerMap[pid].yellow++;
           if (booking.card === 'RED_CARD' || booking.card === 'YELLOW_RED_CARD') playerMap[pid].red++;
         }
@@ -88,7 +100,6 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       players,
       total: players.length,
-      eplSquadSize: Object.keys(eplPlayerMap).length,
       source: 'football-data.org',
       updated: new Date().toISOString()
     });
