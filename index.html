@@ -168,7 +168,7 @@
     <table class="club-table">
       <thead>
         <tr>
-          <th style="width:40px">#</th>
+          <th style="width:32px;text-align:center">#</th>
           <th>Club</th>
           <th class="ct-num">Players</th>
           <th class="ct-num">Goals</th>
@@ -377,10 +377,9 @@ function updateClubBoard(){
     document.getElementById('club-board').innerHTML='<tr><td colspan="8" style="text-align:center;padding:1.5rem;color:var(--text2);font-size:0.78rem">Club stats will appear after more matches are played ⏳</td></tr>';
     return;
   }
-  const medals=['🥇','🥈','🥉','4','5'];
   document.getElementById('club-board').innerHTML=clubs.map((c,i)=>`
     <tr>
-      <td><span class="club-rank">${medals[i]}</span></td>
+      <td><span class="club-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</span></td>
       <td>
         <div class="club-name-cell">
           ${c.clubLogo?`<img class="club-crest" src="${c.clubLogo}" alt="" onerror="this.style.display='none'">`: ''}
@@ -407,7 +406,7 @@ function rowHtml(p, rank){
     ? `<span class="${ratingCls}">${p.avgRating}</span>`
     : '<span style="color:var(--text2)">—</span>';
   return `<tr${p.minutes===0?' class="unplayed"':''}>
-    <td class="sc" style="color:var(--text2);font-size:0.75rem;font-weight:600">${rank||'—'}</td>
+    <td style="width:32px;text-align:center;color:var(--text2);font-size:0.72rem;font-weight:600">${rank||'—'}</td>
     <td>
       <div class="pname">${p.name}${posCls?`<span class="pos-badge ${posCls}">${p.position}</span>`:''}</div>
       <div class="pnat">${flagImg}${p.nationality||'—'}</div>
