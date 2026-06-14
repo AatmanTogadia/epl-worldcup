@@ -45,6 +45,11 @@
 
     /* Club leaderboard table */
     .club-table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 1.75rem; }
+    .club-tbl-scroll { max-height: 360px; overflow-y: auto; }
+    .club-tbl-scroll::-webkit-scrollbar { width: 6px; }
+    .club-tbl-scroll::-webkit-scrollbar-track { background: var(--surface2); }
+    .club-tbl-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    .club-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface2); }
     .club-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     .club-table thead th { background: var(--surface2); color: var(--text2); font-weight: 500; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
     .club-table tbody td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -158,8 +163,8 @@
   </div>
 
   <!-- Club Leaderboard -->
-  <div class="section-label">🏟️ Top Performing Clubs</div>
-  <div class="club-table-wrap">
+  <div class="section-label">🏟️ Top Performing Clubs — All 20 EPL Clubs</div>
+  <div class="club-table-wrap"><div class="club-tbl-scroll">
     <table class="club-table">
       <thead>
         <tr>
@@ -175,7 +180,7 @@
       </thead>
       <tbody id="club-board"></tbody>
     </table>
-  </div>
+  </div></div>
 
   <!-- Controls -->
   <div class="controls">
@@ -208,6 +213,7 @@
   </div>
 
   <!-- Players who have played -->
+  <div class="section-label" style="margin-bottom:0.75rem">🏅 Top Performing Players</div>
   <div id="played-section">
     <div class="tbl-wrap"><div class="tbl-scroll">
       <table>
@@ -390,7 +396,7 @@ function updateClubBoard(){
     </tr>`).join('');
 }
 
-function rowHtml(p){
+function rowHtml(p, rank){
   const flagImg = p.flag ? `<img class="flag" src="${p.flag}" alt="" onerror="this.style.display='none'">` : '';
   const clubImg = p.clubLogo
     ? '<img class="club-logo" src="' + p.clubLogo + '" alt="" onerror="this.style.display=\'none\'">'
@@ -401,6 +407,7 @@ function rowHtml(p){
     ? `<span class="${ratingCls}">${p.avgRating}</span>`
     : '<span style="color:var(--text2)">—</span>';
   return `<tr${p.minutes===0?' class="unplayed"':''}>
+    <td class="sc" style="color:var(--text2);font-size:0.75rem;font-weight:600">${rank||'—'}</td>
     <td>
       <div class="pname">${p.name}${posCls?`<span class="pos-badge ${posCls}">${p.position}</span>`:''}</div>
       <div class="pnat">${flagImg}${p.nationality||'—'}</div>
@@ -435,11 +442,11 @@ function renderTable(){
   });
 
   document.getElementById('tbody-played').innerHTML = played.length
-    ? played.map(rowHtml).join('')
+    ? played.map((p,i)=>rowHtml(p,i+1)).join('')
     : '<tr class="msg-row"><td colspan="8">No players match your filters.</td></tr>';
 
   document.getElementById('tbody-bench').innerHTML = bench.length
-    ? bench.map(rowHtml).join('')
+    ? bench.map((p)=>rowHtml(p,null)).join('')
     : '<tr class="msg-row"><td colspan="8">All players have played! ✅</td></tr>';
 
   document.getElementById('bench-section').style.display = bench.length ? '' : 'none';
