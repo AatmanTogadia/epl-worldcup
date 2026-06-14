@@ -225,7 +225,7 @@ module.exports = async function handler(req, res){
           : null,
       }))
       .sort((a,b)=>b.ga-a.ga||(b.avgRating||0)-(a.avgRating||0))
-      .slice(0,5);
+      .slice(0,20);
 
     const players = Object.values(playerMap);
     const result  = {
