@@ -4,7 +4,7 @@ const WC_SEASON  = 2026;
 const EPL_LEAGUE = 39;
 const EPL_SEASON = 2025;
 
-const STATS_TTL    = 60 * 60  * 1000;  // 1 hour
+const STATS_TTL    = 30 * 60  * 1000;  // 30 mins
 const WC_SQUAD_TTL = 24 * 3600* 1000;  // 24 hrs
 const EPL_SQUAD_TTL= 7  * 86400*1000;  // 7 days
 const RATINGS_TTL  = 24 * 3600* 1000;  // 24 hrs
