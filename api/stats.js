@@ -4,9 +4,11 @@ const WC_SEASON  = 2026;
 const EPL_LEAGUE = 39;
 const EPL_SEASON = 2025;
 
-const STATS_TTL    = 10 * 60   * 1000;  // 10 mins
-const WC_SQUAD_TTL = 24 * 3600 * 1000;  // 24 hrs
-const EPL_SQUAD_TTL= 7  * 86400* 1000;  // 7 days
+// Cache TTLs in seconds (for Redis EX parameter)
+const STATS_TTL    = 60 * 60;        // 1 hour
+const WC_SQUAD_TTL = 24 * 3600;      // 24 hrs
+const EPL_SQUAD_TTL= 7  * 86400;     // 7 days
+const RATINGS_TTL  = 24 * 3600;      // 24 hrs
 
 function posLabel(pos){
   if(!pos) return '—';
@@ -18,13 +20,28 @@ function posLabel(pos){
   return pos;
 }
 
-// Simple in-memory cache — best effort, resets on cold start
-const C = {
-  eplMap:   { data:null, at:0 },
-  wcSquads: { data:null, at:0 },
-  ratings:  { data:{},   at:0 },
-  result:   { data:null, at:0 },
-};
+// ── Upstash Redis helpers ──
+// Uses REST API — no npm package needed, works in Vercel serverless
+async function redisGet(key){
+  const url  = process.env.KV_REST_API_URL;
+  const token= process.env.KV_REST_API_TOKEN;
+  const r = await fetch(`${url}/get/${encodeURIComponent(key)}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const d = await r.json();
+  if(!d.result) return null;
+  try { return JSON.parse(d.result); } catch{ return d.result; }
+}
+
+async function redisSet(key, value, ttlSeconds){
+  const url  = process.env.KV_REST_API_URL;
+  const token= process.env.KV_REST_API_TOKEN;
+  await fetch(`${url}/set/${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value: JSON.stringify(value), ex: ttlSeconds })
+  });
+}
 
 module.exports = async function handler(req, res){
   res.setHeader('Access-Control-Allow-Origin','*');
@@ -43,21 +60,17 @@ module.exports = async function handler(req, res){
     return d.response||[];
   }
 
-  // Serve from cache if fresh
-  if(C.result.data && (Date.now()-C.result.at) < STATS_TTL){
-    return res.status(200).json({
-      ...C.result.data,
-      cached: true,
-      cacheAge: Math.round((Date.now()-C.result.at)/1000)+'s'
-    });
-  }
-
   try {
-    // ── STEP 1: EPL squad map — 7 day cache ──
-    let eplMap = {};
-    if(C.eplMap.data && (Date.now()-C.eplMap.at)<EPL_SQUAD_TTL){
-      eplMap = C.eplMap.data;
-    } else {
+    // ── Check Redis cache first — shared across ALL Vercel instances ──
+    const cached = await redisGet('eplstats:result');
+    if(cached) {
+      return res.status(200).json({...cached, cached:true});
+    }
+
+    // ── STEP 1: EPL squad map — 7 day Redis cache ──
+    let eplMap = await redisGet('eplstats:eplmap');
+    if(!eplMap){
+      eplMap = {};
       const eplTeams = await get(`/teams?league=${EPL_LEAGUE}&season=${EPL_SEASON}`);
       for(const e of eplTeams){
         const t = e.team;
@@ -66,14 +79,13 @@ module.exports = async function handler(req, res){
           for(const p of (sq.players||[]))
             eplMap[p.id] = { club:t.name, clubLogo:t.logo||'', position:posLabel(p.position) };
       }
-      C.eplMap = { data:eplMap, at:Date.now() };
+      await redisSet('eplstats:eplmap', eplMap, EPL_SQUAD_TTL);
     }
 
-    // ── STEP 2: WC squad map — 24 hr cache ──
-    let wcSquads = {};
-    if(C.wcSquads.data && (Date.now()-C.wcSquads.at)<WC_SQUAD_TTL){
-      wcSquads = C.wcSquads.data;
-    } else {
+    // ── STEP 2: WC squad map — 24hr Redis cache ──
+    let wcSquads = await redisGet('eplstats:wcsquads');
+    if(!wcSquads){
+      wcSquads = {};
       const wcTeams = await get(`/teams?league=${WC_LEAGUE}&season=${WC_SEASON}`);
       for(const e of wcTeams){
         const t = e.team;
@@ -88,10 +100,10 @@ module.exports = async function handler(req, res){
               teamId:   t.id,
             };
       }
-      C.wcSquads = { data:wcSquads, at:Date.now() };
+      await redisSet('eplstats:wcsquads', wcSquads, WC_SQUAD_TTL);
     }
 
-    // ── STEP 3: Cross reference — all EPL players at WC ──
+    // ── STEP 3: Cross reference ──
     const playerMap = {};
     const wcTeamIds = new Set();
 
@@ -139,85 +151,67 @@ module.exports = async function handler(req, res){
     ]);
     [...scorers,...topAssists,...topYellow,...topRed].forEach(applyEntry);
 
-    // ── STEP 5: Per-team fetch for minutes (Robinson/Xhaka fix) ──
-    for(const teamId of wcTeamIds){
-      const teamPlayers = await get(`/players?league=${WC_LEAGUE}&season=${WC_SEASON}&team=${teamId}`);
-      for(const entry of teamPlayers){
-        const p    = entry.player;
-        const stat = entry.statistics?.[0];
-        if(!stat||!playerMap[p.id]) continue;
-        const pm = playerMap[p.id];
-        if(p.name) pm.name = p.name;
-        if(stat.games?.minutes && stat.games.minutes > pm.minutes)
-          pm.minutes = stat.games.minutes;
-        if(stat.games?.appearences && stat.games.appearences > pm.appearances)
-          pm.appearances = stat.games.appearences;
-        if(!pm.goals   && stat.goals?.total)  pm.goals   = stat.goals.total;
-        if(!pm.assists && stat.goals?.assists) pm.assists = stat.goals.assists;
-        if(!pm.yellow  && stat.cards?.yellow)  pm.yellow  = stat.cards.yellow;
-        const red=(stat.cards?.red||0)+(stat.cards?.yellowred||0);
-        if(!pm.red && red) pm.red=red;
-      }
-    }
-
-    // ── STEP 6: Ratings AND minutes from ALL finished fixtures ──
-    // This is the most reliable source — fixture data updates immediately after match
-    // Use this for BOTH ratings and minutes (fixes Xhaka/Amdouni missing minutes)
+    // ── STEP 5: Ratings AND minutes from finished fixtures ──
     const finishedFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
     const fixtureIds = finishedFixtures.map(f=>f.fixture?.id).filter(Boolean);
 
-    // Only fetch fixture player data for new fixtures not already cached
+    // Load existing ratings cache from Redis
+    let ratingsCache = await redisGet('eplstats:ratings') || {};
+    let ratingsCacheUpdated = false;
+
     for(const fid of fixtureIds){
-      if(C.ratings.data[fid]) continue;
+      if(ratingsCache[fid]) continue; // already cached in Redis
       const fxPlayers = await get(`/fixtures/players?fixture=${fid}`);
-      C.ratings.data[fid] = {};
+      ratingsCache[fid] = {};
       for(const teamData of fxPlayers){
         for(const pe of (teamData.players||[])){
           const pid    = pe.player?.id;
           const stat   = pe.statistics?.[0];
           const rating = stat?.games?.rating;
           const mins   = stat?.games?.minutes;
-          if(pid) C.ratings.data[fid][pid] = {
+          if(pid) ratingsCache[fid][pid] = {
             rating: rating ? parseFloat(rating) : null,
             mins:   mins   ? parseInt(mins)     : 0,
           };
         }
       }
+      ratingsCacheUpdated = true;
     }
 
-    // Apply ratings AND minutes from fixture data
+    // Save ratings cache back to Redis if updated
+    if(ratingsCacheUpdated){
+      await redisSet('eplstats:ratings', ratingsCache, RATINGS_TTL);
+    }
+
+    // Apply ratings and minutes from fixture data
     for(const [pid, pm] of Object.entries(playerMap)){
       const gameRatings = [];
       let totalMins = 0;
-
       for(const fid of fixtureIds){
-        const entry = C.ratings.data[fid]?.[parseInt(pid)];
+        const entry = ratingsCache[fid]?.[parseInt(pid)];
         if(!entry) continue;
         if(entry.rating) gameRatings.push(entry.rating);
         if(entry.mins)   totalMins += entry.mins;
       }
-
       if(gameRatings.length){
         pm.ratings   = gameRatings;
         pm.avgRating = Math.round((gameRatings.reduce((a,b)=>a+b,0)/gameRatings.length)*10)/10;
       }
-
-      // Use fixture minutes if per-team endpoint returned 0
-      // This fixes players like Xhaka who have ratings but 0 minutes
       if(totalMins > pm.minutes) pm.minutes = totalMins;
     }
 
-    // ── STEP 7: Club leaderboard ──
+    // ── STEP 6: Club leaderboard ──
     const clubStats = {};
     for(const pm of Object.values(playerMap)){
       if(!clubStats[pm.club]) clubStats[pm.club] = {
         club:pm.club, clubLogo:pm.clubLogo,
-        players:0, goals:0, assists:0, ratings:[]
+        players:0, goals:0, assists:0, totalMins:0, ratings:[]
       };
       const cs = clubStats[pm.club];
       cs.players++;
-      cs.goals   += pm.goals||0;
-      cs.assists += pm.assists||0;
+      cs.goals    += pm.goals||0;
+      cs.assists  += pm.assists||0;
+      cs.totalMins+= pm.minutes||0;
       if(pm.avgRating) cs.ratings.push(pm.avgRating);
     }
 
@@ -225,6 +219,7 @@ module.exports = async function handler(req, res){
       .map(cs=>({
         ...cs,
         ga: cs.goals+cs.assists,
+        totalMins: cs.totalMins,
         avgRating: cs.ratings.length
           ? Math.round((cs.ratings.reduce((a,b)=>a+b,0)/cs.ratings.length)*10)/10
           : null,
@@ -241,12 +236,15 @@ module.exports = async function handler(req, res){
       updated:  new Date().toISOString(),
     };
 
-    C.result = { data:result, at:Date.now() };
+    // Save result to Redis — expires in 10 mins
+    await redisSet('eplstats:result', result, STATS_TTL);
+
     return res.status(200).json({...result, cached:false});
 
   } catch(e){
-    if(C.result.data)
-      return res.status(200).json({...C.result.data,cached:true,stale:true,error:e.message});
+    // Try to serve stale Redis cache on error
+    const stale = await redisGet('eplstats:result');
+    if(stale) return res.status(200).json({...stale, cached:true, stale:true, error:e.message});
     return res.status(500).json({error:e.message});
   }
 };
