@@ -4,11 +4,10 @@ const WC_SEASON  = 2026;
 const EPL_LEAGUE = 39;
 const EPL_SEASON = 2025;
 
-// Cache TTLs in seconds (for Redis EX parameter)
-const STATS_TTL    = 60 * 60;        // 1 hour
-const WC_SQUAD_TTL = 24 * 3600;      // 24 hrs
-const EPL_SQUAD_TTL= 7  * 86400;     // 7 days
-const RATINGS_TTL  = 24 * 3600;      // 24 hrs
+const STATS_TTL    = 60 * 60  * 1000;  // 1 hour
+const WC_SQUAD_TTL = 24 * 3600* 1000;  // 24 hrs
+const EPL_SQUAD_TTL= 7  * 86400*1000;  // 7 days
+const RATINGS_TTL  = 24 * 3600* 1000;  // 24 hrs
 
 function posLabel(pos){
   if(!pos) return '—';
@@ -20,28 +19,13 @@ function posLabel(pos){
   return pos;
 }
 
-// ── Upstash Redis helpers ──
-// Uses REST API — no npm package needed, works in Vercel serverless
-async function redisGet(key){
-  const url  = process.env.KV_REST_API_URL;
-  const token= process.env.KV_REST_API_TOKEN;
-  const r = await fetch(`${url}/get/${encodeURIComponent(key)}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const d = await r.json();
-  if(!d.result) return null;
-  try { return JSON.parse(d.result); } catch{ return d.result; }
-}
-
-async function redisSet(key, value, ttlSeconds){
-  const url  = process.env.KV_REST_API_URL;
-  const token= process.env.KV_REST_API_TOKEN;
-  await fetch(`${url}/set/${encodeURIComponent(key)}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ value: JSON.stringify(value), ex: ttlSeconds })
-  });
-}
+// Simple in-memory cache — fast, reliable, no serialization issues
+const C = {
+  eplMap:   { data:null, at:0 },
+  wcSquads: { data:null, at:0 },
+  ratings:  { data:{},   at:0 },
+  result:   { data:null, at:0 },
+};
 
 module.exports = async function handler(req, res){
   res.setHeader('Access-Control-Allow-Origin','*');
@@ -52,6 +36,12 @@ module.exports = async function handler(req, res){
   const key = process.env.API_FOOTBALL_KEY;
   if(!key) return res.status(500).json({error:'API_FOOTBALL_KEY not configured'});
 
+  // Serve from in-memory cache if fresh
+  if(C.result.data && Array.isArray(C.result.data.players) && (Date.now()-C.result.at)<STATS_TTL){
+    return res.status(200).json({...C.result.data, cached:true,
+      cacheAge: Math.round((Date.now()-C.result.at)/1000)+'s'});
+  }
+
   const headers = {'x-apisports-key': key};
   async function get(path){
     const r = await fetch(`${BASE}${path}`,{headers});
@@ -61,16 +51,11 @@ module.exports = async function handler(req, res){
   }
 
   try {
-    // ── Check Redis cache first — shared across ALL Vercel instances ──
-    const cached = await redisGet('eplstats:result');
-    if(cached) {
-      return res.status(200).json({...cached, cached:true});
-    }
-
-    // ── STEP 1: EPL squad map — 7 day Redis cache ──
-    let eplMap = await redisGet('eplstats:eplmap');
-    if(!eplMap){
-      eplMap = {};
+    // ── STEP 1: EPL squad map — 7 day cache ──
+    let eplMap = {};
+    if(C.eplMap.data && (Date.now()-C.eplMap.at)<EPL_SQUAD_TTL){
+      eplMap = C.eplMap.data;
+    } else {
       const eplTeams = await get(`/teams?league=${EPL_LEAGUE}&season=${EPL_SEASON}`);
       for(const e of eplTeams){
         const t = e.team;
@@ -79,13 +64,14 @@ module.exports = async function handler(req, res){
           for(const p of (sq.players||[]))
             eplMap[p.id] = { club:t.name, clubLogo:t.logo||'', position:posLabel(p.position) };
       }
-      await redisSet('eplstats:eplmap', eplMap, EPL_SQUAD_TTL);
+      C.eplMap = { data:eplMap, at:Date.now() };
     }
 
-    // ── STEP 2: WC squad map — 24hr Redis cache ──
-    let wcSquads = await redisGet('eplstats:wcsquads');
-    if(!wcSquads){
-      wcSquads = {};
+    // ── STEP 2: WC squad map — 24 hr cache ──
+    let wcSquads = {};
+    if(C.wcSquads.data && (Date.now()-C.wcSquads.at)<WC_SQUAD_TTL){
+      wcSquads = C.wcSquads.data;
+    } else {
       const wcTeams = await get(`/teams?league=${WC_LEAGUE}&season=${WC_SEASON}`);
       for(const e of wcTeams){
         const t = e.team;
@@ -100,13 +86,12 @@ module.exports = async function handler(req, res){
               teamId:   t.id,
             };
       }
-      await redisSet('eplstats:wcsquads', wcSquads, WC_SQUAD_TTL);
+      C.wcSquads = { data:wcSquads, at:Date.now() };
     }
 
     // ── STEP 3: Cross reference ──
     const playerMap = {};
     const wcTeamIds = new Set();
-
     for(const [pid, epl] of Object.entries(eplMap)){
       const wc = wcSquads[pid];
       if(!wc) continue;
@@ -118,11 +103,10 @@ module.exports = async function handler(req, res){
         club:        epl.club,
         clubLogo:    epl.clubLogo,
         position:    epl.position||wc.position,
-        minutes:     0, appearances: 0,
-        goals:       0, assists:     0,
-        yellow:      0, red:         0,
-        ratings:     [],
-        avgRating:   null,
+        minutes:     0, appearances:0,
+        goals:       0, assists:    0,
+        yellow:      0, red:        0,
+        ratings:     [], avgRating: null,
       };
       if(wc.teamId) wcTeamIds.add(wc.teamId);
     }
@@ -155,40 +139,28 @@ module.exports = async function handler(req, res){
     const finishedFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
     const fixtureIds = finishedFixtures.map(f=>f.fixture?.id).filter(Boolean);
 
-    // Load existing ratings cache from Redis
-    let ratingsCache = await redisGet('eplstats:ratings') || {};
-    let ratingsCacheUpdated = false;
-
     for(const fid of fixtureIds){
-      if(ratingsCache[fid]) continue; // already cached in Redis
+      if(C.ratings.data[fid]) continue;
       const fxPlayers = await get(`/fixtures/players?fixture=${fid}`);
-      ratingsCache[fid] = {};
+      C.ratings.data[fid] = {};
       for(const teamData of fxPlayers){
         for(const pe of (teamData.players||[])){
           const pid    = pe.player?.id;
           const stat   = pe.statistics?.[0];
-          const rating = stat?.games?.rating;
-          const mins   = stat?.games?.minutes;
-          if(pid) ratingsCache[fid][pid] = {
-            rating: rating ? parseFloat(rating) : null,
-            mins:   mins   ? parseInt(mins)     : 0,
+          if(pid) C.ratings.data[fid][pid] = {
+            rating: stat?.games?.rating ? parseFloat(stat.games.rating) : null,
+            mins:   stat?.games?.minutes ? parseInt(stat.games.minutes) : 0,
           };
         }
       }
-      ratingsCacheUpdated = true;
     }
 
-    // Save ratings cache back to Redis if updated
-    if(ratingsCacheUpdated){
-      await redisSet('eplstats:ratings', ratingsCache, RATINGS_TTL);
-    }
-
-    // Apply ratings and minutes from fixture data
+    // Apply ratings and minutes
     for(const [pid, pm] of Object.entries(playerMap)){
       const gameRatings = [];
       let totalMins = 0;
       for(const fid of fixtureIds){
-        const entry = ratingsCache[fid]?.[parseInt(pid)];
+        const entry = C.ratings.data[fid]?.[parseInt(pid)];
         if(!entry) continue;
         if(entry.rating) gameRatings.push(entry.rating);
         if(entry.mins)   totalMins += entry.mins;
@@ -219,7 +191,6 @@ module.exports = async function handler(req, res){
       .map(cs=>({
         ...cs,
         ga: cs.goals+cs.assists,
-        totalMins: cs.totalMins,
         avgRating: cs.ratings.length
           ? Math.round((cs.ratings.reduce((a,b)=>a+b,0)/cs.ratings.length)*10)/10
           : null,
@@ -236,15 +207,12 @@ module.exports = async function handler(req, res){
       updated:  new Date().toISOString(),
     };
 
-    // Save result to Redis — expires in 10 mins
-    await redisSet('eplstats:result', result, STATS_TTL);
-
+    C.result = { data:result, at:Date.now() };
     return res.status(200).json({...result, cached:false});
 
   } catch(e){
-    // Try to serve stale Redis cache on error
-    const stale = await redisGet('eplstats:result');
-    if(stale) return res.status(200).json({...stale, cached:true, stale:true, error:e.message});
+    if(C.result.data && Array.isArray(C.result.data.players))
+      return res.status(200).json({...C.result.data, cached:true, stale:true});
     return res.status(500).json({error:e.message});
   }
 };
