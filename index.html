@@ -218,11 +218,13 @@
     <div class="tbl-wrap"><div class="tbl-scroll">
       <table>
         <colgroup>
-          <col style="width:22%"><col style="width:20%"><col style="width:8%">
-          <col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:11%"><col style="width:11%">
+          <col style="width:36px">
+          <col style="width:22%"><col style="width:18%"><col style="width:8%">
+          <col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
         </colgroup>
         <thead>
           <tr>
+            <th style="text-align:center;color:var(--text2)">#</th>
             <th onclick="sortBy('name',this)">Player <span id="a-name">↕</span></th>
             <th onclick="sortBy('club',this)">Club <span id="a-club">↕</span></th>
             <th class="sc" onclick="sortBy('avgRating',this)">Rating <span id="a-avgRating">↕</span></th>
@@ -244,14 +246,16 @@
     <div class="tbl-wrap"><div class="tbl-scroll">
       <table>
         <colgroup>
-          <col style="width:22%"><col style="width:20%"><col style="width:8%">
-          <col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:11%"><col style="width:11%">
+          <col style="width:36px">
+          <col style="width:22%"><col style="width:18%"><col style="width:8%">
+          <col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
         </colgroup>
         <thead>
           <tr>
+            <th style="text-align:center;color:var(--text2)">#</th>
             <th onclick="sortByBench('name',this)">Player <span id="b-name">↕</span></th>
             <th onclick="sortByBench('club',this)">Club <span id="b-club">↕</span></th>
-            <th class="sc">Pos</th>
+            <th class="sc">Rating</th>
             <th class="sc">Mins</th>
             <th class="sc">Goals</th>
             <th class="sc">Assists</th>
@@ -442,11 +446,11 @@ function renderTable(){
 
   document.getElementById('tbody-played').innerHTML = played.length
     ? played.map((p,i)=>rowHtml(p,i+1)).join('')
-    : '<tr class="msg-row"><td colspan="8">No players match your filters.</td></tr>';
+    : '<tr class="msg-row"><td colspan="9">No players match your filters.</td></tr>';
 
   document.getElementById('tbody-bench').innerHTML = bench.length
     ? bench.map((p)=>rowHtml(p,null)).join('')
-    : '<tr class="msg-row"><td colspan="8">All players have played! ✅</td></tr>';
+    : '<tr class="msg-row"><td colspan="9">All players have played! ✅</td></tr>';
 
   document.getElementById('bench-section').style.display = bench.length ? '' : 'none';
 }
