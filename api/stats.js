@@ -148,28 +148,37 @@ module.exports = async function handler(req, res){
           const pid    = pe.player?.id;
           const stat   = pe.statistics?.[0];
           if(pid) C.ratings.data[fid][pid] = {
-            rating: stat?.games?.rating ? parseFloat(stat.games.rating) : null,
-            mins:   stat?.games?.minutes ? parseInt(stat.games.minutes) : 0,
+            rating:  stat?.games?.rating   ? parseFloat(stat.games.rating)  : null,
+            mins:    stat?.games?.minutes   ? parseInt(stat.games.minutes)   : 0,
+            goals:   stat?.goals?.total     ? parseInt(stat.goals.total)     : 0,
+            assists: stat?.goals?.assists   ? parseInt(stat.goals.assists)   : 0,
           };
         }
       }
     }
 
-    // Apply ratings and minutes
+    // Apply ratings, minutes, goals and assists from fixture data
+    // This is more reliable than topscorers endpoint which can lag
     for(const [pid, pm] of Object.entries(playerMap)){
       const gameRatings = [];
-      let totalMins = 0;
+      let totalMins  = 0;
+      let totalGoals = 0;
+      let totalAssists = 0;
       for(const fid of fixtureIds){
         const entry = C.ratings.data[fid]?.[parseInt(pid)];
         if(!entry) continue;
-        if(entry.rating) gameRatings.push(entry.rating);
-        if(entry.mins)   totalMins += entry.mins;
+        if(entry.rating)  gameRatings.push(entry.rating);
+        if(entry.mins)    totalMins    += entry.mins;
+        if(entry.goals)   totalGoals   += entry.goals;
+        if(entry.assists) totalAssists += entry.assists;
       }
       if(gameRatings.length){
         pm.ratings   = gameRatings;
         pm.avgRating = Math.round((gameRatings.reduce((a,b)=>a+b,0)/gameRatings.length)*10)/10;
       }
-      if(totalMins > pm.minutes) pm.minutes = totalMins;
+      if(totalMins > pm.minutes)       pm.minutes = totalMins;
+      if(totalGoals > pm.goals)         pm.goals   = totalGoals;
+      if(totalAssists > pm.assists)     pm.assists  = totalAssists;
     }
 
     // ── STEP 6: Club leaderboard ──
