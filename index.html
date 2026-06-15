@@ -437,6 +437,12 @@ function renderTable(){
 
   // Sort played
   played.sort((a,b)=>{
+    // Default sort: goals desc, then assists desc, then rating desc
+    if(sortKey==='goals' && !sortAsc){
+      if(b.goals !== a.goals) return b.goals - a.goals;
+      if(b.assists !== a.assists) return b.assists - a.assists;
+      return (b.avgRating||0) - (a.avgRating||0);
+    }
     let va=a[sortKey],vb=b[sortKey];
     if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
     return sortAsc?(va>vb?1:-1):(va<vb?1:-1);
