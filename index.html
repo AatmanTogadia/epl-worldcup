@@ -223,13 +223,13 @@
     <div class="tbl-wrap"><div class="tbl-scroll">
       <table>
         <colgroup>
-          <col style="width:36px">
-          <col style="width:18%"><col style="width:14%"><col style="width:8%">
+          <col style="width:40px">
+          <col><col style="width:16%"><col style="width:8%">
           <col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%">
         </colgroup>
         <thead>
           <tr>
-            <th style="text-align:center;color:var(--text2)">#</th>
+            <th style="width:40px;text-align:center;color:var(--text2)">#</th>
             <th onclick="sortBy('name',this)">Player <span id="a-name">↕</span></th>
             <th onclick="sortBy('club',this)">Club <span id="a-club">↕</span></th>
             <th class="sc" onclick="sortBy('avgRating',this)">Rating <span id="a-avgRating">↕</span></th>
@@ -251,13 +251,13 @@
     <div class="tbl-wrap"><div class="tbl-scroll">
       <table>
         <colgroup>
-          <col style="width:36px">
-          <col style="width:18%"><col style="width:14%"><col style="width:8%">
+          <col style="width:40px">
+          <col><col style="width:16%"><col style="width:8%">
           <col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%">
         </colgroup>
         <thead>
           <tr>
-            <th style="text-align:center;color:var(--text2)">#</th>
+            <th style="width:40px;text-align:center;color:var(--text2)">#</th>
             <th onclick="sortByBench('name',this)">Player <span id="b-name">↕</span></th>
             <th onclick="sortByBench('club',this)">Club <span id="b-club">↕</span></th>
             <th class="sc">Rating</th>
@@ -415,7 +415,7 @@ function rowHtml(p, rank){
     ? `<span class="${ratingCls}">${p.avgRating}</span>`
     : '<span style="color:var(--text2)">—</span>';
   return `<tr${p.minutes===0?' class="unplayed"':''}>
-    <td style="width:32px;text-align:center;color:var(--text2);font-size:0.72rem;font-weight:600">${rank||'—'}</td>
+    <td style="width:40px;text-align:center;color:var(--text2);font-size:0.72rem;font-weight:600;padding:9px 8px">${rank||'—'}</td>
     <td>
       <div class="pname">${p.name}${posCls?`<span class="pos-badge ${posCls}">${p.position}</span>`:''}</div>
       <div class="pnat">${flagImg}${p.nationality||'—'}</div>
