@@ -8,59 +8,57 @@ module.exports = async function handler(req, res){
   const headers = {'x-apisports-key': key};
 
   try {
-    // Find Switzerland team ID in WC
-    const teamsRes = await fetch(`${BASE}/teams?league=${WC_LEAGUE}&season=${WC_SEASON}`,{headers});
-    const teamsData = await teamsRes.json();
-    const sui = (teamsData.response||[]).find(e=>e.team?.name?.toLowerCase().includes('swi'));
-    const suiId = sui?.team?.id;
+    // Find Germany fixtures
+    const wcTeamsRes = await fetch(`${BASE}/teams?league=${WC_LEAGUE}&season=${WC_SEASON}`,{headers});
+    const wcTeams = (await wcTeamsRes.json()).response||[];
+    const germany = wcTeams.find(e=>e.team?.name?.toLowerCase().includes('germany'));
 
-    // Fetch Switzerland players in WC
-    const playersRes = await fetch(`${BASE}/players?league=${WC_LEAGUE}&season=${WC_SEASON}&team=${suiId}`,{headers});
-    const playersData = await playersRes.json();
+    const fxRes = await fetch(`${BASE}/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&team=${germany?.team?.id}&status=FT`,{headers});
+    const fixtures = (await fxRes.json()).response||[];
 
-    // Look for Xhaka and Amdouni
-    const relevant = (playersData.response||[]).filter(e=>
-      e.player?.name?.toLowerCase().includes('xhaka') ||
-      e.player?.name?.toLowerCase().includes('amdouni') ||
-      e.player?.name?.toLowerCase().includes('ndoye') ||
-      e.player?.name?.toLowerCase().includes('zakaria')
-    );
+    // Check topscorers for Havertz
+    const scorersRes = await fetch(`${BASE}/players/topscorers?league=${WC_LEAGUE}&season=${WC_SEASON}`,{headers});
+    const scorers = (await scorersRes.json()).response||[];
+    const havertzScorer = scorers.find(e=>e.player?.name?.toLowerCase().includes('havertz'));
 
-    // Also check fixture players for Qatar vs Switzerland
-    const qatSuiFixture = 1489373;
-    const fxRes = await fetch(`${BASE}/fixtures/players?fixture=${qatSuiFixture}`,{headers});
-    const fxData = await fxRes.json();
-    const fxRelevant = [];
-    for(const t of (fxData.response||[])){
-      for(const p of (t.players||[])){
-        const name = p.player?.name?.toLowerCase();
-        if(name?.includes('xhaka')||name?.includes('amdouni')||name?.includes('ndoye')){
-          fxRelevant.push({
-            name: p.player?.name,
-            mins: p.statistics?.[0]?.games?.minutes,
-            rating: p.statistics?.[0]?.games?.rating,
-            playerId: p.player?.id,
-          });
-        }
+    // Check fixture events for Havertz goal
+    let havertzEvents = [];
+    for(const fx of fixtures){
+      const evRes = await fetch(`${BASE}/fixtures/events?fixture=${fx.fixture?.id}`,{headers});
+      const events = (await evRes.json()).response||[];
+      const hav = events.filter(e=>e.player?.name?.toLowerCase().includes('havertz'));
+      if(hav.length) havertzEvents.push({
+        fixture: `${fx.teams?.home?.name} vs ${fx.teams?.away?.name}`,
+        events: hav.map(e=>({ type:e.type, detail:e.detail, minute:e.time?.elapsed }))
+      });
+    }
+
+    // Check fixture players for Havertz stats
+    let havertzFixtureStats = [];
+    for(const fx of fixtures){
+      const fpRes = await fetch(`${BASE}/fixtures/players?fixture=${fx.fixture?.id}`,{headers});
+      const fpData = (await fpRes.json()).response||[];
+      for(const team of fpData){
+        const hav = (team.players||[]).find(p=>p.player?.name?.toLowerCase().includes('havertz'));
+        if(hav) havertzFixtureStats.push({
+          fixture: `${fx.teams?.home?.name} vs ${fx.teams?.away?.name}`,
+          goals: hav.statistics?.[0]?.goals?.total,
+          rating: hav.statistics?.[0]?.games?.rating,
+          mins: hav.statistics?.[0]?.games?.minutes,
+        });
       }
     }
 
     return res.status(200).json({
-      suiTeamId: suiId,
-      suiTeamName: sui?.team?.name,
-      playersApiTotal: playersData.results,
-      playersApiPaging: playersData.paging,
-      relevantPlayers: relevant.map(e=>({
-        id: e.player?.id,
-        name: e.player?.name,
-        minutes: e.statistics?.[0]?.games?.minutes,
-        appearances: e.statistics?.[0]?.games?.appearences,
-        goals: e.statistics?.[0]?.goals?.total,
-      })),
-      fixturePlayerData: fxRelevant,
+      havertzInTopScorers: havertzScorer ? {
+        goals: havertzScorer.goals,
+        name: havertzScorer.player?.name,
+      } : '❌ Not in top scorers yet',
+      havertzFixtureEvents: havertzEvents,
+      havertzFixtureStats,
     });
 
   } catch(e){
-    return res.status(500).json({error: e.message});
+    return res.status(500).json({error:e.message});
   }
 };
