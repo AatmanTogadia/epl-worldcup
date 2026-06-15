@@ -50,7 +50,12 @@
     .club-tbl-scroll::-webkit-scrollbar-track { background: var(--surface2); }
     .club-tbl-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
     .club-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface2); }
-    .club-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .club-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
+    .club-table th:nth-child(1) { width: 44px; }
+    .club-table th:nth-child(2) { width: 22%; }
+    .club-table th:nth-child(3), .club-table th:nth-child(4),
+    .club-table th:nth-child(5), .club-table th:nth-child(6),
+    .club-table th:nth-child(7), .club-table th:nth-child(8) { width: auto; }
     .club-table thead th { background: var(--surface2); color: var(--text2); font-weight: 500; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; padding: 8px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
     .club-table tbody td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     .club-table tbody tr:last-child td { border-bottom: none; }
@@ -103,7 +108,7 @@
     .tbl-scroll::-webkit-scrollbar-track { background: var(--surface2); }
     .tbl-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
     .tbl-scroll thead th { position: sticky; top: 0; z-index: 1; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 680px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 600px; }
     thead th { background: var(--surface2); color: var(--text2); font-weight: 500; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; }
     thead th:hover { color: var(--text); }
     thead th.active { color: var(--green); }
@@ -219,8 +224,8 @@
       <table>
         <colgroup>
           <col style="width:36px">
-          <col style="width:22%"><col style="width:18%"><col style="width:8%">
-          <col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
+          <col style="width:18%"><col style="width:14%"><col style="width:8%">
+          <col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%">
         </colgroup>
         <thead>
           <tr>
@@ -247,8 +252,8 @@
       <table>
         <colgroup>
           <col style="width:36px">
-          <col style="width:22%"><col style="width:18%"><col style="width:8%">
-          <col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:10%"><col style="width:10%">
+          <col style="width:18%"><col style="width:14%"><col style="width:8%">
+          <col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%">
         </colgroup>
         <thead>
           <tr>
