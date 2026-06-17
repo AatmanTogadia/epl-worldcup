@@ -103,6 +103,22 @@
     .rating-ok    { color: #f5c518; font-weight: 600; }
     .rating-bad   { color: #ff4d6d; font-weight: 600; }
 
+    /* Live players section */
+    .live-wrap { margin-bottom: 1.75rem; }
+    .live-msg { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; text-align: center; font-size: 0.8rem; color: var(--text2); }
+    .live-match-group { background: var(--surface); border: 1px solid rgba(255,77,109,0.25); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+    .live-match-header { background: rgba(255,77,109,0.08); padding: 8px 14px; display: flex; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 600; border-bottom: 1px solid rgba(255,77,109,0.2); }
+    .live-dot { width: 7px; height: 7px; background: var(--red); border-radius: 50%; animation: livepulse 1.2s infinite; flex-shrink: 0; }
+    @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .live-minute { color: var(--red); font-weight: 700; margin-left: auto; }
+    .live-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .live-table th { background: var(--surface2); color: var(--text2); font-weight: 500; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 7px 14px; text-align: left; }
+    .live-table td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .live-table tr:last-child td { border-bottom: none; }
+    .live-vs { font-size: 0.72rem; color: var(--text2); }
+    .live-score { font-weight: 700; color: var(--text); }
+    .lsc { text-align: center; }
+
     /* Controls */
     .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
     .search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 220px; }
@@ -189,6 +205,12 @@
 </div>
 
 <div class="main">
+
+  <!-- Live Players -->
+  <div class="section-label">🔴 Players Live In Action</div>
+  <div class="live-wrap" id="live-wrap">
+    <div class="live-msg">Checking for live matches…</div>
+  </div>
 
   <!-- Top 5 Scorers Leaderboard -->
   <div class="section-label">🏅 Top Scorers</div>
@@ -486,6 +508,63 @@ function tick(){
 }
 function doRefresh(){clearInterval(cdTimer);clearTimeout(refTimer);fetchStats().then(startCountdown);}
 doRefresh();
+
+/* ── Live players section — independent 5 min refresh ── */
+async function fetchLive(){
+  try{
+    const r = await fetch('/api/live',{method:'GET'});
+    const json = await r.json();
+    renderLive(json);
+  }catch(e){
+    document.getElementById('live-wrap').innerHTML =
+      '<div class="live-msg">Unable to load live match data right now.</div>';
+  }
+}
+
+function renderLive(data){
+  const wrap = document.getElementById('live-wrap');
+
+  if(!data.live || !data.matches || !data.matches.length){
+    wrap.innerHTML = `<div class="live-msg">⚽ ${data.message || 'No World Cup matches in progress right now.'}</div>`;
+    return;
+  }
+
+  wrap.innerHTML = data.matches.map(m => `
+    <div class="live-match-group">
+      <div class="live-match-header">
+        <span class="live-dot"></span>
+        <span>${m.home} ${m.homeScore} - ${m.awayScore} ${m.away}</span>
+        <span class="live-minute">${m.minute}'</span>
+      </div>
+      <table class="live-table">
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>vs</th>
+            <th class="lsc">Goals</th>
+            <th class="lsc">Assists</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${m.players.map(p => `
+            <tr>
+              <td>
+                <div class="club-wrap">
+                  ${p.clubLogo?`<img class="club-logo" src="${p.clubLogo}" alt="" onerror="this.style.display='none'">`:''}
+                  <span>${p.name}</span>
+                </div>
+              </td>
+              <td class="live-vs">${p.opponent} <span class="live-score">${p.myScore}-${p.oppScore}</span></td>
+              <td class="lsc ${p.goals>0?'g':''}">${p.goals}</td>
+              <td class="lsc ${p.assists>0?'a':''}">${p.assists}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+}
+
+fetchLive();
+setInterval(fetchLive, 5*60*1000);
 </script>
 </body>
 </html>
