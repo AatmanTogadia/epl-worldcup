@@ -197,7 +197,7 @@
   </div>
 
   <!-- Club Leaderboard -->
-  <div class="section-label">🏟️ Top Performing Clubs — All 20 EPL Clubs</div>
+  <div class="section-label">🏟️ Top Performing Clubs</div>
   <div class="club-table-wrap"><div class="club-tbl-scroll">
     <table class="club-table">
       <thead>
@@ -246,7 +246,7 @@
     <button class="rbtn" id="rbtn" onclick="doRefresh()">↻ Refresh now</button>
   </div>
 
-  <!-- Players who have played -->
+  <!-- All players, ranked -->
   <div class="section-label" style="margin-bottom:0.75rem">🏅 Top Performing Players</div>
   <div id="played-section">
     <div class="tbl-wrap"><div class="tbl-scroll">
@@ -270,34 +270,6 @@
           </tr>
         </thead>
         <tbody id="tbody-played"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Players yet to play -->
-  <div id="bench-section">
-    <div class="section-divider">⏳ Yet to play</div>
-    <div class="tbl-wrap"><div class="tbl-scroll">
-      <table>
-        <colgroup>
-          <col style="width:40px">
-          <col><col style="width:16%"><col style="width:8%">
-          <col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%">
-        </colgroup>
-        <thead>
-          <tr>
-            <th style="width:40px;text-align:center;color:var(--text2)">#</th>
-            <th onclick="sortByBench('name',this)">Player <span id="b-name">↕</span></th>
-            <th onclick="sortByBench('club',this)">Club <span id="b-club">↕</span></th>
-            <th class="sc">Rating</th>
-            <th class="sc">Mins</th>
-            <th class="sc">Goals</th>
-            <th class="sc">Assists</th>
-            <th class="sc">Yellow</th>
-            <th class="sc">Red</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-bench"></tbody>
       </table>
     </div>
   </div>
@@ -456,8 +428,8 @@ function rowHtml(p, rank){
     <td><div class="club-wrap">${clubImg}<span>${p.club||'—'}</span></div></td>
     <td class="sc">${ratingHtml}</td>
     <td class="sc">${p.minutes?p.minutes+"'":'—'}</td>
-    <td class="sc ${p.goals>0?'g':''}">${p.goals}</td>
-    <td class="sc ${p.assists>0?'a':''}">${p.assists}</td>
+    <td class="sc ${p.goals>0?'g':''}">${p.minutes?p.goals:'—'}</td>
+    <td class="sc ${p.assists>0?'a':''}">${p.minutes?p.assists:'—'}</td>
     <td class="sc">${p.yellow>0?'<span class="yc"></span>'+(p.yellow>1?'<span class="cx">×'+p.yellow+'</span>':''):'—'}</td>
     <td class="sc">${p.red>0?'<span class="rc"></span>':'—'}</td>
   </tr>`;
@@ -466,7 +438,7 @@ function rowHtml(p, rank){
 function renderTable(){
   const filtered=getFiltered();
   const played=filtered.filter(p=>p.minutes>0);
-  const bench=filtered.filter(p=>p.minutes===0);
+  const unplayed=filtered.filter(p=>p.minutes===0);
 
   // Sort played
   played.sort((a,b)=>{
@@ -481,38 +453,28 @@ function renderTable(){
     return sortAsc?(va>vb?1:-1):(va<vb?1:-1);
   });
 
-  // Sort bench
-  bench.sort((a,b)=>{
-    let va=a[benchSortKey]||'',vb=b[benchSortKey]||'';
-    if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
-    return benchSortAsc?(va>vb?1:-1):(va<vb?1:-1);
-  });
+  // Unplayed players always sorted alphabetically by name, go at the bottom
+  unplayed.sort((a,b)=> a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
-  document.getElementById('tbody-played').innerHTML = played.length
-    ? played.map((p,i)=>rowHtml(p,i+1)).join('')
+  // Merge: played players ranked first, then unplayed (no rank) at the bottom
+  const combined = [
+    ...played.map((p,i)=>({p, rank:i+1})),
+    ...unplayed.map(p=>({p, rank:null}))
+  ];
+
+  document.getElementById('tbody-played').innerHTML = combined.length
+    ? combined.map(({p,rank})=>rowHtml(p,rank)).join('')
     : '<tr class="msg-row"><td colspan="9">No players match your filters.</td></tr>';
 
-  document.getElementById('tbody-bench').innerHTML = bench.length
-    ? bench.map((p)=>rowHtml(p,null)).join('')
-    : '<tr class="msg-row"><td colspan="9">All players have played! ✅</td></tr>';
-
-  document.getElementById('bench-section').style.display = bench.length ? '' : 'none';
+  /* legacy bench tbody no longer used
 }
 
 function sortBy(key,th){
   sortAsc=sortKey===key?!sortAsc:(key==='name'||key==='club'||key==='position');
   sortKey=key;
-  document.querySelectorAll('#played-section thead th').forEach(t=>{t.classList.remove('active');t.querySelector('span').textContent='↕';});
+  document.querySelectorAll('#played-section thead th').forEach(t=>{if(t.querySelector('span')){t.classList.remove('active');t.querySelector('span').textContent='↕';}});
   th.classList.add('active');
-  th.querySelector('span').textContent=sortAsc?'↑':'↓';
-  renderTable();
-}
-
-function sortByBench(key,th){
-  benchSortAsc=benchSortKey===key?!benchSortAsc:true;
-  benchSortKey=key;
-  document.querySelectorAll('#bench-section thead th').forEach(t=>{if(t.querySelector('span'))t.querySelector('span').textContent='↕';});
-  if(th.querySelector('span'))th.querySelector('span').textContent=benchSortAsc?'↑':'↓';
+  if(th.querySelector('span')) th.querySelector('span').textContent=sortAsc?'↑':'↓';
   renderTable();
 }
 
