@@ -319,8 +319,7 @@ async function fetchStats(){
     updateFilters(); renderAll(); updateChips();
     document.getElementById('last-upd').textContent='· Updated '+new Date().toLocaleTimeString();
   }catch(e){
-    document.getElementById('tbody-played').innerHTML=`<tr class="msg-row"><td colspan="8">Error: ${e.message}</td></tr>`;
-    document.getElementById('tbody-bench').innerHTML='';
+    document.getElementById('tbody-played').innerHTML=`<tr class="msg-row"><td colspan="9">Error: ${e.message}</td></tr>`;
   }
   setBusy(false);
 }
@@ -328,9 +327,8 @@ async function fetchStats(){
 function setBusy(on){
   document.getElementById('rbtn').classList.toggle('spin',on);
   if(on){
-    const shimRow=Array.from({length:5},()=>`<tr>${Array.from({length:8},(_,i)=>`<td${i>1?' class="sc"':''}><div class="shimmer" style="width:${i===0?'110px':i===1?'90px':'24px'}"></div></td>`).join('')}</tr>`).join('');
+    const shimRow=Array.from({length:5},()=>`<tr>${Array.from({length:9},(_,i)=>`<td${i>1?' class="sc"':''}><div class="shimmer" style="width:${i===0?'24px':i===1?'110px':'24px'}"></div></td>`).join('')}</tr>`).join('');
     document.getElementById('tbody-played').innerHTML=shimRow;
-    document.getElementById('tbody-bench').innerHTML='';
     document.getElementById('scorers-board').innerHTML='';
   }
 }
