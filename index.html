@@ -58,19 +58,19 @@
     .main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
     @media(max-width:600px){ .main { padding: 1rem 1rem 2rem; } .hero { padding: 1.25rem 1rem 1rem; } }
     .section-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); margin-bottom: 0.75rem; }
-    .scorers-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 1.75rem; }
+    .scorers-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 1.5rem; }
     @media(max-width:600px){ .scorers-board { grid-template-columns: 1fr; } }
-    .scorer-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden; }
+    .scorer-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.7rem; display: flex; align-items: center; gap: 8px; position: relative; overflow: hidden; }
     .scorer-card:first-child { border-color: rgba(255,215,0,0.3); background: linear-gradient(135deg, #111827, #1a1a0a); }
-    .scorer-rank { font-size: 1.4rem; font-weight: 700; color: var(--text2); min-width: 28px; }
+    .scorer-rank { font-size: 1.05rem; font-weight: 700; color: var(--text2); min-width: 20px; }
     .scorer-card:first-child .scorer-rank { color: var(--gold); }
-    .scorer-crest { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; }
+    .scorer-crest { width: 18px; height: 18px; object-fit: contain; flex-shrink: 0; }
     .scorer-info { flex: 1; min-width: 0; }
-    .scorer-name { font-size: 0.8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
-    .scorer-club { font-size: 0.65rem; color: var(--text2); margin-top: 1px; }
-    @media(max-width:600px){ .scorer-name { font-size: 0.75rem; } .scorer-goals { font-size: 0.95rem; } }
-    .scorer-goals { font-size: 1.1rem; font-weight: 700; color: var(--green); margin-left: auto; }
-    .scorer-goals span { font-size: 0.6rem; color: var(--text2); display: block; text-align: center; font-weight: 400; }
+    .scorer-name { font-size: 0.74rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+    .scorer-club { font-size: 0.62rem; color: var(--text2); margin-top: 0px; }
+    @media(max-width:600px){ .scorer-name { font-size: 0.72rem; } .scorer-goals { font-size: 0.85rem; } }
+    .scorer-goals { font-size: 0.95rem; font-weight: 700; color: var(--green); margin-left: auto; }
+    .scorer-goals span { font-size: 0.56rem; color: var(--text2); display: block; text-align: center; font-weight: 400; }
 
     /* Club leaderboard table */
     .club-table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 1.75rem; }
