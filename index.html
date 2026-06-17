@@ -465,8 +465,6 @@ function renderTable(){
   document.getElementById('tbody-played').innerHTML = combined.length
     ? combined.map(({p,rank})=>rowHtml(p,rank)).join('')
     : '<tr class="msg-row"><td colspan="9">No players match your filters.</td></tr>';
-
-  /* legacy bench tbody no longer used
 }
 
 function sortBy(key,th){
