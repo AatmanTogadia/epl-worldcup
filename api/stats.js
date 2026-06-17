@@ -4,6 +4,13 @@ const WC_SEASON  = 2026;
 const EPL_LEAGUE = 39;
 const EPL_SEASON = 2025;
 
+// Clubs relegated from the Premier League — exclude entirely
+const RELEGATED_CLUBS = ['West Ham', 'Burnley', 'Wolverhampton', 'Wolves'];
+function isRelegated(clubName){
+  if(!clubName) return false;
+  return RELEGATED_CLUBS.some(c => clubName.toLowerCase().includes(c.toLowerCase()));
+}
+
 const STATS_TTL    = 30 * 60  * 1000;  // 30 mins
 const WC_SQUAD_TTL = 24 * 3600* 1000;  // 24 hrs
 const EPL_SQUAD_TTL= 7  * 86400*1000;  // 7 days
@@ -59,6 +66,7 @@ module.exports = async function handler(req, res){
       const eplTeams = await get(`/teams?league=${EPL_LEAGUE}&season=${EPL_SEASON}`);
       for(const e of eplTeams){
         const t = e.team;
+        if(isRelegated(t.name)) continue; // skip relegated clubs entirely
         const squads = await get(`/players/squads?team=${t.id}`);
         for(const sq of squads)
           for(const p of (sq.players||[]))
@@ -111,31 +119,9 @@ module.exports = async function handler(req, res){
       if(wc.teamId) wcTeamIds.add(wc.teamId);
     }
 
-    // ── STEP 4: Top stats — 4 parallel calls ──
-    function applyEntry(entry){
-      const p    = entry.player;
-      const stat = entry.statistics?.[0];
-      if(!stat||!playerMap[p.id]) return;
-      const pm = playerMap[p.id];
-      if(p.name) pm.name = p.name;
-      if(stat.games?.minutes)      pm.minutes     = stat.games.minutes;
-      if(stat.games?.appearences)  pm.appearances = stat.games.appearences;
-      if(stat.goals?.total)        pm.goals       = stat.goals.total;
-      if(stat.goals?.assists)      pm.assists     = stat.goals.assists;
-      if(stat.cards?.yellow)       pm.yellow      = stat.cards.yellow;
-      const red=(stat.cards?.red||0)+(stat.cards?.yellowred||0);
-      if(red) pm.red=red;
-    }
-
-    const [scorers, topAssists, topYellow, topRed] = await Promise.all([
-      get(`/players/topscorers?league=${WC_LEAGUE}&season=${WC_SEASON}`),
-      get(`/players/topassists?league=${WC_LEAGUE}&season=${WC_SEASON}`),
-      get(`/players/topyellowcards?league=${WC_LEAGUE}&season=${WC_SEASON}`),
-      get(`/players/topredcards?league=${WC_LEAGUE}&season=${WC_SEASON}`),
-    ]);
-    [...scorers,...topAssists,...topYellow,...topRed].forEach(applyEntry);
-
-    // ── STEP 5: Ratings AND minutes from finished fixtures ──
+    // ── STEP 4: All stats from finished fixtures (single source of truth) ──
+    // goals, assists, minutes, ratings, cards — all from fixture player data
+    // No need for separate topscorers/topassists/topcards calls
     const finishedFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
     const fixtureIds = finishedFixtures.map(f=>f.fixture?.id).filter(Boolean);
 
@@ -152,6 +138,8 @@ module.exports = async function handler(req, res){
             mins:    stat?.games?.minutes   ? parseInt(stat.games.minutes)   : 0,
             goals:   stat?.goals?.total     ? parseInt(stat.goals.total)     : 0,
             assists: stat?.goals?.assists   ? parseInt(stat.goals.assists)   : 0,
+            yellow:  stat?.cards?.yellow    ? parseInt(stat.cards.yellow)    : 0,
+            red:    (stat?.cards?.red||0)+(stat?.cards?.yellowred||0),
           };
         }
       }
@@ -161,9 +149,11 @@ module.exports = async function handler(req, res){
     // This is more reliable than topscorers endpoint which can lag
     for(const [pid, pm] of Object.entries(playerMap)){
       const gameRatings = [];
-      let totalMins  = 0;
-      let totalGoals = 0;
+      let totalMins    = 0;
+      let totalGoals   = 0;
       let totalAssists = 0;
+      let totalYellow  = 0;
+      let totalRed     = 0;
       for(const fid of fixtureIds){
         const entry = C.ratings.data[fid]?.[parseInt(pid)];
         if(!entry) continue;
@@ -171,6 +161,8 @@ module.exports = async function handler(req, res){
         if(entry.mins)    totalMins    += entry.mins;
         if(entry.goals)   totalGoals   += entry.goals;
         if(entry.assists) totalAssists += entry.assists;
+        if(entry.yellow)  totalYellow  += entry.yellow;
+        if(entry.red)     totalRed     += entry.red;
       }
       if(gameRatings.length){
         pm.ratings   = gameRatings;
@@ -179,6 +171,8 @@ module.exports = async function handler(req, res){
       if(totalMins > pm.minutes)       pm.minutes = totalMins;
       if(totalGoals > pm.goals)         pm.goals   = totalGoals;
       if(totalAssists > pm.assists)     pm.assists  = totalAssists;
+      if(totalYellow > pm.yellow)       pm.yellow  = totalYellow;
+      if(totalRed > pm.red)             pm.red     = totalRed;
     }
 
     // ── STEP 6: Club leaderboard ──
