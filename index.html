@@ -111,9 +111,10 @@
     .live-dot { width: 7px; height: 7px; background: var(--red); border-radius: 50%; animation: livepulse 1.2s infinite; flex-shrink: 0; }
     @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     .live-minute { color: var(--red); font-weight: 700; margin-left: auto; }
-    .live-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    .live-table th { background: var(--surface2); color: var(--text2); font-weight: 500; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 7px 14px; text-align: left; }
-    .live-table td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .live-tbl-scroll { overflow-x: auto; }
+    .live-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 420px; }
+    .live-table th { background: var(--surface2); color: var(--text2); font-weight: 500; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 7px 14px; text-align: left; white-space: nowrap; }
+    .live-table td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
     .live-table tr:last-child td { border-bottom: none; }
     .live-vs { font-size: 0.72rem; color: var(--text2); }
     .live-score { font-weight: 700; color: var(--text); }
@@ -536,6 +537,7 @@ function renderLive(data){
         <span>${m.home} ${m.homeScore} - ${m.awayScore} ${m.away}</span>
         <span class="live-minute">${m.minute}'</span>
       </div>
+      <div class="live-tbl-scroll">
       <table class="live-table">
         <thead>
           <tr>
@@ -560,6 +562,7 @@ function renderLive(data){
             </tr>`).join('')}
         </tbody>
       </table>
+      </div>
     </div>`).join('');
 }
 
