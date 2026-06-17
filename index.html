@@ -112,12 +112,11 @@
     @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     .live-minute { color: var(--red); font-weight: 700; margin-left: auto; }
     .live-tbl-scroll { overflow-x: auto; }
-    .live-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 420px; }
+    .live-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 320px; }
     .live-table th { background: var(--surface2); color: var(--text2); font-weight: 500; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 7px 14px; text-align: left; white-space: nowrap; }
     .live-table td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
     .live-table tr:last-child td { border-bottom: none; }
-    .live-vs { font-size: 0.72rem; color: var(--text2); }
-    .live-score { font-weight: 700; color: var(--text); }
+    .live-vs-tag { font-size: 0.65rem; color: var(--text2); margin-left: 4px; }
     .lsc { text-align: center; }
 
     /* Controls */
@@ -542,7 +541,6 @@ function renderLive(data){
         <thead>
           <tr>
             <th>Player</th>
-            <th>vs</th>
             <th class="lsc">Goals</th>
             <th class="lsc">Assists</th>
           </tr>
@@ -554,9 +552,9 @@ function renderLive(data){
                 <div class="club-wrap">
                   ${p.clubLogo?`<img class="club-logo" src="${p.clubLogo}" alt="" onerror="this.style.display='none'">`:''}
                   <span>${p.name}</span>
+                  <span class="live-vs-tag">${p.nation}</span>
                 </div>
               </td>
-              <td class="live-vs">${p.opponent} <span class="live-score">${p.myScore}-${p.oppScore}</span></td>
               <td class="lsc ${p.goals>0?'g':''}">${p.goals}</td>
               <td class="lsc ${p.assists>0?'a':''}">${p.assists}</td>
             </tr>`).join('')}
