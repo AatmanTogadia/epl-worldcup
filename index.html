@@ -451,8 +451,8 @@ function rowHtml(p, rank){
     <td class="sc">${p.minutes?p.minutes+"'":'—'}</td>
     <td class="sc ${p.goals>0?'g':''}">${p.minutes?p.goals:'—'}</td>
     <td class="sc ${p.assists>0?'a':''}">${p.minutes?p.assists:'—'}</td>
-    <td class="sc">${p.yellow>0?'<span class="yc"></span>'+(p.yellow>1?'<span class="cx">×'+p.yellow+'</span>':''):'—'}</td>
-    <td class="sc">${p.red>0?'<span class="rc"></span>':'—'}</td>
+    <td class="sc">${p.yellow>0?'<span class="yc"></span><span class="cx">'+p.yellow+'</span>':'—'}</td>
+    <td class="sc">${p.red>0?'<span class="rc"></span><span class="cx">'+p.red+'</span>':'—'}</td>
   </tr>`;
 }
 
@@ -530,7 +530,9 @@ function renderLive(data){
     return;
   }
 
-  wrap.innerHTML = data.matches.map(m => `
+  wrap.innerHTML = data.matches.map(m => {
+    const sortedPlayers = [...m.players].sort((a,b) => b.goals - a.goals || b.assists - a.assists);
+    return `
     <div class="live-match-group">
       <div class="live-match-header">
         <span class="live-dot"></span>
@@ -547,7 +549,7 @@ function renderLive(data){
           </tr>
         </thead>
         <tbody>
-          ${m.players.map(p => `
+          ${sortedPlayers.map(p => `
             <tr>
               <td>
                 <div class="club-wrap">
@@ -562,7 +564,8 @@ function renderLive(data){
         </tbody>
       </table>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 fetchLive();
