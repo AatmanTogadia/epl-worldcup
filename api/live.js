@@ -41,7 +41,17 @@ module.exports = async function handler(req, res){
   }
 
   try {
-    // ── Step 1: EPL squad map — reuse 7 day cache ──
+    // ── Step 0: Cheap check first — is anything even live? ──
+    // Only 1 API call. If nothing's live, skip all the expensive squad fetching entirely.
+    const liveFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&live=all`);
+
+    if(!liveFixtures.length){
+      const result = { live:false, matches:[], message:'No World Cup matches in progress right now.' };
+      C.result = { data:result, at:Date.now() };
+      return res.status(200).json({...result, cached:false});
+    }
+
+    // ── Step 1: EPL squad map — only fetched if a match is actually live ──
     let eplMap = {};
     if(C.eplMap.data && (Date.now()-C.eplMap.at)<EPL_SQUAD_TTL){
       eplMap = C.eplMap.data;
@@ -56,15 +66,6 @@ module.exports = async function handler(req, res){
             eplMap[p.id] = { club:t.name, clubLogo:t.logo||'' };
       }
       C.eplMap = { data:eplMap, at:Date.now() };
-    }
-
-    // ── Step 2: Get all currently live WC fixtures ──
-    const liveFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&live=all`);
-
-    if(!liveFixtures.length){
-      const result = { live:false, matches:[], message:'No World Cup matches in progress right now.' };
-      C.result = { data:result, at:Date.now() };
-      return res.status(200).json({...result, cached:false});
     }
 
     // ── Step 3: For each live fixture, get player stats ──
