@@ -32,22 +32,38 @@ module.exports = async function handler(req, res){
     const assists  = (await assistsRes.json()).response  || [];
     const fixtures = (await fixturesRes.json()).response || [];
 
-    // Build a compact stats summary to send to Claude
-    const topScorers = scorers.slice(0,10).map(e=>({
-      name:    e.player?.name,
-      nation:  e.player?.nationality,
-      team:    e.statistics?.[0]?.team?.name,
-      goals:   e.goals,
-      assists: e.assists,
-      mins:    e.statistics?.[0]?.games?.minutes,
-    }));
+    // EPL clubs to filter by
+    const EPL_CLUBS = ['Arsenal','Chelsea','Manchester City','Manchester United','Liverpool',
+      'Tottenham','Newcastle','Aston Villa','Brighton','Brentford','Fulham',
+      'Nottingham Forest','Everton','Crystal Palace','Leicester','Southampton',
+      'Ipswich','Bournemouth','Sunderland','Leeds'];
 
-    const topAssists = assists.slice(0,5).map(e=>({
-      name:    e.player?.name,
-      nation:  e.player?.nationality,
-      assists: e.assists,
-      goals:   e.goals,
-    }));
+    function isEPL(teamName){
+      if(!teamName) return false;
+      return EPL_CLUBS.some(c => teamName.toLowerCase().includes(c.toLowerCase().split(' ')[0]));
+    }
+
+    // Only include EPL players in the data sent to Claude
+    const topScorers = scorers
+      .filter(e => isEPL(e.statistics?.[0]?.team?.name))
+      .slice(0,10).map(e=>({
+        name:    e.player?.name,
+        club:    e.statistics?.[0]?.team?.name,
+        nation:  e.player?.nationality,
+        goals:   e.goals,
+        assists: e.assists,
+        mins:    e.statistics?.[0]?.games?.minutes,
+      }));
+
+    const topAssists = assists
+      .filter(e => isEPL(e.statistics?.[0]?.team?.name))
+      .slice(0,5).map(e=>({
+        name:    e.player?.name,
+        club:    e.statistics?.[0]?.team?.name,
+        nation:  e.player?.nationality,
+        assists: e.assists,
+        goals:   e.goals,
+      }));
 
     const matchResults = fixtures.slice(-10).map(f=>({
       home:      f.teams?.home?.name,
@@ -56,24 +72,25 @@ module.exports = async function handler(req, res){
       awayGoals: f.goals?.away,
     }));
 
-    const prompt = `You are a football stats analyst covering the FIFA World Cup 2026. 
-Here is the current tournament data:
+    const prompt = `You are a football stats analyst covering EPL (English Premier League) players at the FIFA World Cup 2026.
+Here is the current tournament data for EPL players only:
 
-TOP SCORERS:
+TOP SCORERS (EPL players):
 ${JSON.stringify(topScorers, null, 2)}
 
-TOP ASSISTS:
+TOP ASSISTS (EPL players):
 ${JSON.stringify(topAssists, null, 2)}
 
 RECENT RESULTS:
 ${JSON.stringify(matchResults, null, 2)}
 
-Based ONLY on this real data, generate exactly 2 short, interesting, specific football facts or observations. 
-Each fact should be surprising, specific, and data-driven. Do not make up statistics not in the data.
-Focus on patterns, comparisons, records or surprising findings.
+Based ONLY on this real data, generate exactly 2 short, interesting, specific facts about EPL players at this World Cup.
+Every fact MUST be about a specific EPL player or EPL club — never about a non-EPL player or general World Cup stats.
+Each fact should be surprising, specific and data-driven. Do not make up statistics not in the data.
+Focus on patterns, comparisons, records or surprising findings about Premier League players.
 
 Return ONLY a JSON array of exactly 2 strings. No markdown, no explanation. Example format:
-["Fact one here.", "Fact two here."]`;
+["Fact one about an EPL player here.", "Fact two about an EPL club here."]`;
 
     // ── Step 2: Ask Claude to generate facts ──
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
