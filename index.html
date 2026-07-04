@@ -52,6 +52,7 @@
     .hero-sub { font-size: 0.75rem; color: var(--text2); margin-top: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
     .wc-pill { background: var(--gold); color: #000; font-size: 0.65rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 6px; display: inline-block; }
     .hero-tagline { font-size: 0.78rem; color: var(--text2); margin-top: 10px; font-style: italic; }
+    .hero-fact { font-size: 0.75rem; color: var(--green); margin-top: 4px; font-style: italic; opacity: 0.9; transition: opacity 0.3s ease; }
     .hero-tagline span { color: var(--green); font-style: normal; font-weight: 600; }
 
     /* Top scorers leaderboard */
@@ -183,6 +184,14 @@
     .shimmer { background: linear-gradient(90deg,var(--surface2) 25%,#1f2e48 50%,var(--surface2) 75%); background-size: 200% 100%; animation: sh 1.4s infinite; border-radius: 4px; height: 13px; display: inline-block; }
     @keyframes sh { to { background-position: -200% 0; } }
 
+    /* Worth Noting */
+    .facts-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.75rem; }
+    @media(max-width:600px){ .facts-wrap { grid-template-columns: 1fr; } }
+    .fact-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; display: flex; gap: 10px; align-items: flex-start; }
+    .fact-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+    .fact-text { font-size: 0.82rem; color: var(--text); line-height: 1.55; }
+    .fact-loading { font-size: 0.78rem; color: var(--text2); font-style: italic; }
+
     /* Footer */
     .footer { border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text2); font-size: 0.78rem; line-height: 2; }
     .footer-name { color: var(--gold); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; }
@@ -201,6 +210,7 @@
       <div class="hero-sub">FIFA World Cup 2026 · Player Stats</div>
       <div class="wc-pill">USA · Canada · Mexico</div>
       <div class="hero-tagline">Because someone has to keep track of all these lads 👀</div>
+      <div class="hero-fact" id="hero-fact"></div>
     </div>
   </div>
 </div>
@@ -570,6 +580,30 @@ function renderLive(data){
 
 fetchLive();
 setInterval(fetchLive, 5*60*1000);
+
+/* ── Worth Noting — Claude AI fact, refresh every 1 hour ── */
+async function fetchFacts(){
+  try{
+    const r = await fetch('/api/facts',{method:'GET'});
+    const json = await r.json();
+    if(json.facts && Array.isArray(json.facts) && json.facts.length){
+      // Rotate between facts every 10 seconds
+      let i = 0;
+      const el = document.getElementById('hero-fact');
+      if(el){
+        el.textContent = '💡 ' + json.facts[0];
+        setInterval(()=>{
+          i = (i+1) % json.facts.length;
+          el.style.opacity = '0';
+          setTimeout(()=>{ el.textContent = '💡 ' + json.facts[i]; el.style.opacity = '0.9'; }, 300);
+        }, 10000);
+      }
+    }
+  }catch(e){ /* silently fail */ }
+}
+
+fetchFacts();
+setInterval(fetchFacts, 60*60*1000);
 </script>
 </body>
 </html>
