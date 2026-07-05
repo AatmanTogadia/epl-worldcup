@@ -105,6 +105,12 @@
     .rating-ok    { color: #f5c518; font-weight: 600; }
     .rating-bad   { color: #ff4d6d; font-weight: 600; }
 
+    /* Summary bar */
+    .summary-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .summary-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+    .summary-val { font-weight: 700; color: var(--green); font-size: 0.9rem; }
+    .summary-lbl { color: var(--text2); }
+
     /* Live players section */
     .live-wrap { margin-bottom: 1.75rem; }
     .live-msg { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; text-align: center; font-size: 0.8rem; color: var(--text2); }
@@ -217,6 +223,9 @@
 
 <div class="main">
 
+  <!-- Summary Bar -->
+  <div class="summary-bar" id="summary-bar"></div>
+
   <!-- Live Players -->
   <div class="section-label">🔴 Players Live In Action</div>
   <div class="live-wrap" id="live-wrap">
@@ -287,7 +296,7 @@
         <colgroup>
           <col style="width:40px">
           <col><col style="width:16%"><col style="width:8%">
-          <col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%">
+          <col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%">
         </colgroup>
         <thead>
           <tr>
@@ -298,6 +307,7 @@
             <th class="sc" onclick="sortBy('minutes',this)">Mins <span id="a-minutes">↕</span></th>
             <th class="sc" onclick="sortBy('goals',this)">Goals <span id="a-goals">↓</span></th>
             <th class="sc" onclick="sortBy('assists',this)">Assists <span id="a-assists">↕</span></th>
+            <th class="sc" onclick="sortBy('g90',this)">G/90 <span id="a-g90">↕</span></th>
             <th class="sc" onclick="sortBy('yellow',this)">Yellow <span id="a-yellow">↕</span></th>
             <th class="sc" onclick="sortBy('red',this)">Red <span id="a-red">↕</span></th>
           </tr>
@@ -391,9 +401,26 @@ function getFiltered(){
   );
 }
 
+function updateSummary(){
+  const played = players.filter(p=>p.minutes>0);
+  const totalGoals   = played.reduce((s,p)=>s+(p.goals||0),0);
+  const totalAssists = played.reduce((s,p)=>s+(p.assists||0),0);
+  const totalMins    = played.reduce((s,p)=>s+(p.minutes||0),0);
+  const totalPlayers = played.length;
+  const el = document.getElementById('summary-bar');
+  if(!el) return;
+  el.innerHTML = `
+    <div class="summary-stat"><span class="summary-val">${totalPlayers}</span><span class="summary-lbl">Players played</span></div>
+    <div class="summary-stat"><span class="summary-val">${totalGoals}</span><span class="summary-lbl">Goals</span></div>
+    <div class="summary-stat"><span class="summary-val">${totalAssists}</span><span class="summary-lbl">Assists</span></div>
+    <div class="summary-stat"><span class="summary-val">${totalMins.toLocaleString()}'</span><span class="summary-lbl">Minutes played</span></div>
+  `;
+}
+
 function renderAll(){
   updateScorers();
   updateClubBoard();
+  updateSummary();
   renderTable();
 }
 
@@ -461,6 +488,7 @@ function rowHtml(p, rank){
     <td class="sc">${p.minutes?p.minutes+"'":'—'}</td>
     <td class="sc ${p.goals>0?'g':''}">${p.minutes?p.goals:'—'}</td>
     <td class="sc ${p.assists>0?'a':''}">${p.minutes?p.assists:'—'}</td>
+    <td class="sc" style="color:var(--text2)">${p.minutes>0?(Math.round(p.goals/p.minutes*90*100)/100).toFixed(2):'—'}</td>
     <td class="sc">${p.yellow>0?'<span class="yc"></span><span class="cx">'+p.yellow+'</span>':'—'}</td>
     <td class="sc">${p.red>0?'<span class="rc"></span><span class="cx">'+p.red+'</span>':'—'}</td>
   </tr>`;
@@ -479,6 +507,8 @@ function renderTable(){
       if(b.assists !== a.assists) return b.assists - a.assists;
       return (b.avgRating||0) - (a.avgRating||0);
     }
+    const g90 = p => p.minutes>0 ? p.goals/p.minutes*90 : 0;
+    if(sortKey==='g90'){ return sortAsc ? g90(a)-g90(b) : g90(b)-g90(a); }
     let va=a[sortKey],vb=b[sortKey];
     if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
     return sortAsc?(va>vb?1:-1):(va<vb?1:-1);
@@ -495,7 +525,7 @@ function renderTable(){
 
   document.getElementById('tbody-played').innerHTML = combined.length
     ? combined.map(({p,rank})=>rowHtml(p,rank)).join('')
-    : '<tr class="msg-row"><td colspan="9">No players match your filters.</td></tr>';
+    : '<tr class="msg-row"><td colspan="10">No players match your filters.</td></tr>';
 }
 
 function sortBy(key,th){
