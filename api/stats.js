@@ -1,8 +1,6 @@
 const BASE       = 'https://v3.football.api-sports.io';
 const WC_LEAGUE  = 1;
 const WC_SEASON  = 2026;
-const EPL_LEAGUE = 39;
-const EPL_SEASON = 2025;
 
 // Clubs relegated from the Premier League — exclude entirely
 const RELEGATED_CLUBS = ['West Ham', 'Burnley', 'Wolverhampton', 'Wolves'];
@@ -30,7 +28,6 @@ function posLabel(pos){
 
 // Simple in-memory cache — fast, reliable, no serialization issues
 const C = {
-  eplMap:   { data:null, at:0 },
   ratings:  { data:{},   at:0 },
   result:   { data:null, at:0 },
 };
@@ -59,22 +56,8 @@ module.exports = async function handler(req, res){
   }
 
   try {
-    // ── STEP 1: EPL squad map — 7 day cache ──
-    let eplMap = {};
-    if(C.eplMap.data && (Date.now()-C.eplMap.at)<EPL_SQUAD_TTL){
-      eplMap = C.eplMap.data;
-    } else {
-      const eplTeams = await get(`/teams?league=${EPL_LEAGUE}&season=${EPL_SEASON}`);
-      for(const e of eplTeams){
-        const t = e.team;
-        if(isRelegated(t.name)) continue; // skip relegated clubs entirely
-        const squads = await get(`/players/squads?team=${t.id}`);
-        for(const sq of squads)
-          for(const p of (sq.players||[]))
-            eplMap[p.id] = { club:t.name, clubLogo:t.logo||'', position:posLabel(p.position) };
-      }
-      C.eplMap = { data:eplMap, at:Date.now() };
-    }
+    // ── STEP 1: EPL squad map — hardcoded, 0 API calls ──
+    const eplMap = HARDCODED_EPL_MAP;
 
     // ── STEP 2: WC squad map — hardcoded, 0 API calls ──
     const wcSquads = HARDCODED_WC_MAP;
