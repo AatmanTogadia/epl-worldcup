@@ -1,6 +1,8 @@
 const BASE       = 'https://v3.football.api-sports.io';
 const WC_LEAGUE  = 1;
 const WC_SEASON  = 2026;
+const EPL_LEAGUE = 39;
+const EPL_SEASON = 2025;
 
 // Clubs relegated from the Premier League — exclude entirely
 const RELEGATED_CLUBS = ['West Ham', 'Burnley', 'Wolverhampton', 'Wolves'];
