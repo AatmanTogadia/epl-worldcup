@@ -37,6 +37,8 @@ const C = {
   result:   { data:null, at:0 },
 };
 
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
 module.exports = async function handler(req, res){
   res.setHeader('Access-Control-Allow-Origin','*');
   res.setHeader('Access-Control-Allow-Methods','GET,OPTIONS');
@@ -97,6 +99,7 @@ module.exports = async function handler(req, res){
 
     for(const fid of fixtureIds){
       if(C.ratings.data[fid]) continue;
+      await sleep(200);
       const fxPlayers = await get(`/fixtures/players?fixture=${fid}`);
       C.ratings.data[fid] = {};
       for(const teamData of fxPlayers){
