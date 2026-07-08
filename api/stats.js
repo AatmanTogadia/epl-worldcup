@@ -97,15 +97,15 @@ module.exports = async function handler(req, res){
     const finishedFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
     const fixtureIds = finishedFixtures.map(f=>f.fixture?.id).filter(Boolean);
 
-    for(const fid of fixtureIds){
-      if(C.ratings.data[fid]) continue;
-      await sleep(200);
+    // Fetch ratings for new fixtures in parallel batches of 5
+    const newFids = fixtureIds.filter(fid => !C.ratings.data[fid]);
+    async function fetchFixture(fid){
       const fxPlayers = await get(`/fixtures/players?fixture=${fid}`);
       C.ratings.data[fid] = {};
       for(const teamData of fxPlayers){
         for(const pe of (teamData.players||[])){
-          const pid    = pe.player?.id;
-          const stat   = pe.statistics?.[0];
+          const pid  = pe.player?.id;
+          const stat = pe.statistics?.[0];
           if(pid) C.ratings.data[fid][pid] = {
             rating:  stat?.games?.rating   ? parseFloat(stat.games.rating)  : null,
             mins:    stat?.games?.minutes   ? parseInt(stat.games.minutes)   : 0,
@@ -116,6 +116,9 @@ module.exports = async function handler(req, res){
           };
         }
       }
+    }
+    for(let i = 0; i < newFids.length; i += 5){
+      await Promise.all(newFids.slice(i, i+5).map(fetchFixture));
     }
 
     // Apply ratings, minutes, goals and assists from fixture data
