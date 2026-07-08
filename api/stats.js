@@ -37,6 +37,10 @@ const C = {
   result:   { data:null, at:0 },
 };
 
+// ── HARDCODED FIXTURE IDs (83 finished as of 2026-07-08) ──
+// New finished fixtures are detected and fetched automatically
+const HARDCODED_FIXTURE_IDS = new Set([1489369, 1538999, 1539000, 1489370, 1489373, 1489371, 1489372, 1539001, 1489374, 1489376, 1489375, 1539002, 1489380, 1489377, 1489379, 1489378, 1489383, 1539016, 1489381, 1489382, 1539003, 1489384, 1489385, 1489386, 1539004, 1539005, 1489387, 1489388, 1489391, 1489390, 1489389, 1539006, 1539007, 1489393, 1489392, 1489394, 1489397, 1489395, 1489398, 1489396, 1489399, 1539017, 1489401, 1489400, 1489404, 1489402, 1489403, 1539008, 1489408, 1539009, 1489405, 1489406, 1539010, 1489407, 1489410, 1489409, 1539011, 1489412, 1539012, 1489411, 1539074, 1489416, 1489417, 1489413, 1489414, 1489415, 1489420, 1489422, 1489419, 1539013, 1489418, 1489421, 1561329, 1562344, 1564789, 1565177, 1567306, 1567307, 1562586, 1567311, 1567309, 1567312, 1567310, 1567824, 1569870, 1568100, 1570714, 1576756, 1570715, 1576804]);
+
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
 module.exports = async function handler(req, res){
@@ -92,10 +96,9 @@ module.exports = async function handler(req, res){
     }
 
     // ── STEP 4: All stats from finished fixtures (single source of truth) ──
-    // goals, assists, minutes, ratings, cards — all from fixture player data
-    // No need for separate topscorers/topassists/topcards calls
-    const finishedFixtures = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
-    const fixtureIds = finishedFixtures.map(f=>f.fixture?.id).filter(Boolean);
+    // Fixture IDs hardcoded — 0 API calls needed to discover them.
+    // When QF/SF/Final finish, update HARDCODED_FIXTURE_IDS manually.
+    const fixtureIds = [...HARDCODED_FIXTURE_IDS];
 
     // Fetch ratings for new fixtures in parallel batches of 5
     const newFids = fixtureIds.filter(fid => !C.ratings.data[fid]);
