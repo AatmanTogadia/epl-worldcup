@@ -117,9 +117,9 @@ module.exports = async function handler(req, res){
         }
       }
     }
-    for(let i = 0; i < newFids.length; i += 5){
-      await Promise.all(newFids.slice(i, i+5).map(fetchFixture));
-    }
+    // Max 7 new fixtures remaining (QFs + SFs + Final)
+    // Run all in parallel — safe since it's at most 7 calls
+    await Promise.all(newFids.map(fetchFixture));
 
     // Apply ratings, minutes, goals and assists from fixture data
     // This is more reliable than topscorers endpoint which can lag
