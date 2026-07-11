@@ -98,9 +98,20 @@ module.exports = async function handler(req, res){
     }
 
     // ── STEP 4: All stats from finished fixtures (single source of truth) ──
-    // Fixture IDs hardcoded — 0 API calls needed to discover them.
-    // When QF/SF/Final finish, update HARDCODED_FIXTURE_IDS manually.
-    const fixtureIds = [...HARDCODED_FIXTURE_IDS];
+    // Start from hardcoded IDs, then discover any new ones (QFs/SFs/Final).
+    // The fixtures list call is cached with ratings so it fires at most once per 30 mins.
+    let fixtureIds;
+    if(C.fixtureIds){
+      fixtureIds = C.fixtureIds;
+    } else {
+      const finished = await get(`/fixtures?league=${WC_LEAGUE}&season=${WC_SEASON}&status=FT`);
+      const allIds = finished.map(f=>f.fixture?.id).filter(Boolean);
+      fixtureIds = [...HARDCODED_FIXTURE_IDS];
+      for(const fid of allIds){
+        if(!HARDCODED_FIXTURE_IDS.has(fid)) fixtureIds.push(fid);
+      }
+      C.fixtureIds = fixtureIds;
+    }
 
     // Fetch ratings for new fixtures in parallel batches of 5
     const newFids = fixtureIds.filter(fid => !C.ratings.data[fid]);
