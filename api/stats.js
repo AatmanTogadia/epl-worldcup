@@ -55,6 +55,9 @@ module.exports = async function handler(req, res){
   if(!key) return res.status(500).json({error:'API_FOOTBALL_KEY not configured'});
 
   // Serve from in-memory cache if fresh
+  // Reset fixtureIds every 30 mins so new finished games get discovered
+  if((Date.now()-C.result.at) >= STATS_TTL) C.fixtureIds = null;
+
   if(C.result.data && Array.isArray(C.result.data.players) && (Date.now()-C.result.at)<STATS_TTL){
     return res.status(200).json({...C.result.data, cached:true,
       cacheAge: Math.round((Date.now()-C.result.at)/1000)+'s'});
