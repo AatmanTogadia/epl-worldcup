@@ -58,6 +58,13 @@ module.exports = async function handler(req, res){
   // Reset fixtureIds every 30 mins so new finished games get discovered
   if((Date.now()-C.result.at) >= STATS_TTL) C.fixtureIds = null;
 
+  // ?nocache=1 forces a full refresh (clears everything including ratings for new games)
+  if(req.query.nocache){
+    C.result = { data:null, at:0 };
+    C.fixtureIds = null;
+    C.ratings = { data:JSON.parse(JSON.stringify(HARDCODED_RATINGS)), at:Date.now() };
+  }
+
   if(C.result.data && Array.isArray(C.result.data.players) && (Date.now()-C.result.at)<STATS_TTL){
     return res.status(200).json({...C.result.data, cached:true,
       cacheAge: Math.round((Date.now()-C.result.at)/1000)+'s'});
